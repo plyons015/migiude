@@ -39,3 +39,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Capacitor / Android (native project is committed; ignore local build artifacts)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.keystore
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+.runtimeconfig.json
+functions/.secret.local
+functions/lib/

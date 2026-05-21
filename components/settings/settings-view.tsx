@@ -1,0 +1,356 @@
+"use client";
+
+import { useAiSettings } from "@/hooks/use-ai-settings";
+import { useAppSettings } from "@/hooks/use-app-settings";
+import { clearAllLocalData } from "@/lib/data/local-db";
+import { aiService } from "@/lib/ai/ai-service";
+import type { AiProvider } from "@/lib/ai/types";
+import { requestNotificationPermission } from "@/lib/notifications/reminders";
+import {
+  setAutoAiOnMeetingEnd,
+  setLocalOnlyMode,
+  setNotificationsEnabled,
+  setRollingSummaryEnabled,
+  setRollingSummaryMinutes,
+  setSmartTagsOnEnd,
+  setSpeechLanguage,
+  setThemePreference,
+  setVoiceCommandsEnabled,
+  setCommitmentAwarenessEnabled,
+  setTranscriptionMode,
+  SPEECH_LANGUAGES,
+  type TranscriptionMode,
+  type SpeechLanguage,
+  type ThemePreference,
+} from "@/lib/settings/preferences";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import Link from "next/link";
+import { useState } from "react";
+
+export function SettingsView() {
+  const { provider, setProvider } = useAiSettings();
+  const {
+    speechLang,
+    localOnly,
+    notifications,
+    theme,
+    autoAiOnMeetingEnd,
+    rollingSummary,
+    rollingSummaryMinutes,
+    smartTagsOnEnd,
+    voiceCommands,
+    commitmentAwareness,
+    transcriptionMode,
+  } = useAppSettings();
+  const [status, setStatus] = useState<string | null>(null);
+
+  return (
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-4 pb-8">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground">
+          Model, voice, privacy, and appearance
+        </p>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">AI model</CardTitle>
+          <CardDescription>
+            Processed on Firebase Functions — keys never stored on device
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            {(["gemini", "grok"] as AiProvider[]).map((p) => (
+              <Button
+                key={p}
+                type="button"
+                size="sm"
+                variant={provider === p ? "default" : "outline"}
+                onClick={() => {
+                  aiService.setPreferredProvider(p);
+                  setProvider(p);
+                }}
+                className="capitalize"
+              >
+                {p}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Default: {aiService.getTaskLabel("generic")} via {provider}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Voice & transcription</CardTitle>
+          <CardDescription>
+            Browser speech (free, device-dependent) or meeting mode (cloud STT +
+            speakers)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="transcription-mode">Transcription</Label>
+            <Select
+              value={localOnly ? "browser" : transcriptionMode}
+              disabled={localOnly}
+              onValueChange={(v) =>
+                setTranscriptionMode(v as TranscriptionMode)
+              }
+            >
+              <SelectTrigger id="transcription-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="browser">Browser speech (quick)</SelectItem>
+                <SelectItem value="cloud">Meeting mode — cloud STT</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {localOnly
+                ? "Local-only mode keeps browser speech only (no audio upload)."
+                : transcriptionMode === "cloud"
+                  ? "Short audio chunks go to Firebase → Gemini for transcription with speaker labels. Works on networks where browser speech fails (e.g. some Starlink setups). Uses AI billing."
+                  : "Uses Chrome Web Speech — no audio leaves the device."}
+            </p>
+          </div>
+          <Label htmlFor="speech-lang">Recognition language</Label>
+          <Select
+            value={speechLang}
+            onValueChange={(v) => setSpeechLanguage(v as SpeechLanguage)}
+          >
+            <SelectTrigger id="speech-lang">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SPEECH_LANGUAGES.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Meetings</CardTitle>
+          <CardDescription>When you tap End meeting on Listen</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-ai-meeting">Auto AI on end</Label>
+              <p className="text-xs text-muted-foreground">
+                Summarize transcript and extract todos (uses your AI provider)
+              </p>
+            </div>
+            <Switch
+              id="auto-ai-meeting"
+              checked={autoAiOnMeetingEnd}
+              onCheckedChange={setAutoAiOnMeetingEnd}
+            />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="smart-tags">Smart tags on end</Label>
+              <p className="text-xs text-muted-foreground">
+                AI suggests tags before saving the meeting
+              </p>
+            </div>
+            <Switch
+              id="smart-tags"
+              checked={smartTagsOnEnd}
+              onCheckedChange={setSmartTagsOnEnd}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="rolling-summary">Rolling summary</Label>
+              <p className="text-xs text-muted-foreground">
+                Periodic AI summary while a meeting is recording
+              </p>
+            </div>
+            <Switch
+              id="rolling-summary"
+              checked={rollingSummary}
+              onCheckedChange={setRollingSummaryEnabled}
+            />
+          </div>
+          {rollingSummary ? (
+            <div className="space-y-2">
+              <Label htmlFor="rolling-min">Interval (minutes)</Label>
+              <Select
+                value={String(rollingSummaryMinutes)}
+                onValueChange={(v) => setRollingSummaryMinutes(Number(v))}
+              >
+                <SelectTrigger id="rolling-min">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2, 3, 5, 10, 15].map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {m} min
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="commitment-awareness">Commitment awareness</Label>
+              <p className="text-xs text-muted-foreground">
+                Detect &quot;I will…&quot; and create timed reminders (e.g. this
+                afternoon)
+              </p>
+            </div>
+            <Switch
+              id="commitment-awareness"
+              checked={commitmentAwareness}
+              onCheckedChange={setCommitmentAwarenessEnabled}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="voice-cmd">Voice commands</Label>
+              <p className="text-xs text-muted-foreground">
+                &quot;add todo: …&quot;, &quot;highlight&quot;, &quot;summarize
+                so far&quot;
+              </p>
+            </div>
+            <Switch
+              id="voice-cmd"
+              checked={voiceCommands}
+              onCheckedChange={setVoiceCommandsEnabled}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Privacy</CardTitle>
+          <CardDescription>
+            Browser mode: no audio saved. Cloud STT: chunks sent for transcription,
+            not retained on server.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="local-only">Local-only mode</Label>
+              <p className="text-xs text-muted-foreground">
+                Notes and todos stay on this device (IndexedDB)
+              </p>
+            </div>
+            <Switch
+              id="local-only"
+              checked={localOnly}
+              onCheckedChange={setLocalOnlyMode}
+            />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="notifications">Todo reminders</Label>
+              <p className="text-xs text-muted-foreground">
+                System notifications when todos are due
+              </p>
+            </div>
+            <Switch
+              id="notifications"
+              checked={notifications}
+              onCheckedChange={(on) => {
+                setNotificationsEnabled(on);
+                if (on) void requestNotificationPermission();
+              }}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              void clearAllLocalData()
+                .then(() => setStatus("Local notes, todos, and meetings cleared."))
+                .catch((e) => setStatus(String(e)));
+            }}
+          >
+            Clear local data
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Appearance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Label htmlFor="theme">Theme</Label>
+          <Select
+            value={theme}
+            onValueChange={(v) => setThemePreference(v as ThemePreference)}
+          >
+            <SelectTrigger id="theme" className="mt-2">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="system">System</SelectItem>
+              <SelectItem value="light">Light</SelectItem>
+              <SelectItem value="dark">Dark</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Android</CardTitle>
+          <CardDescription>Release APK, FCM, onboarding</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            <code className="text-xs">npm run cap:android</code> → signed APK — see{" "}
+            <Link href="/setup/" className="underline">Setup</Link>
+          </p>
+          <p className="text-xs">
+            FCM: add <code className="text-xs">android/app/google-services.json</code>{" "}
+            from Firebase Console.
+          </p>
+          <Link href="/onboarding/" className="text-xs font-medium underline">
+            Replay onboarding
+          </Link>
+        </CardContent>
+      </Card>
+
+      {status ? (
+        <p className="text-center text-xs text-muted-foreground">{status}</p>
+      ) : null}
+    </div>
+  );
+}

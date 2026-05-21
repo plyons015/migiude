@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Migiude</string>
+    <string name="title_activity_main">Migiude</string>
+    <string name="package_name">com.migiude.app</string>
+    <string name="custom_url_scheme">com.migiude.app</string>
+</resources>
