@@ -4,9 +4,10 @@ import {
   isOnboardingComplete,
   subscribeOnboarding,
 } from "@/lib/onboarding/preferences";
+import { isOnboardingRoute } from "@/lib/onboarding/routes";
 import { isNativePlatform } from "@/lib/capacitor/platform";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 function subscribe(onStoreChange: () => void) {
   return subscribeOnboarding(onStoreChange);
@@ -14,7 +15,7 @@ function subscribe(onStoreChange: () => void) {
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const redirecting = useRef(false);
   const complete = useSyncExternalStore(
     subscribe,
     () => isOnboardingComplete(),
@@ -23,11 +24,11 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isNativePlatform() || complete) return;
-    if (pathname.startsWith("/onboarding") || pathname.startsWith("/setup")) {
-      return;
-    }
+    if (isOnboardingRoute()) return;
+    if (redirecting.current) return;
+    redirecting.current = true;
     router.replace("/onboarding/");
-  }, [complete, pathname, router]);
+  }, [complete, router]);
 
   return children;
 }

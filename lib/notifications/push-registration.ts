@@ -1,8 +1,8 @@
-import { PushNotifications } from "@capacitor/push-notifications";
 import { doc, setDoc } from "firebase/firestore";
 import { isNativePlatform } from "@/lib/capacitor/platform";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import { isFirebaseConfigured } from "@/lib/env/client";
+import { isFcmPushEnabled } from "@/lib/notifications/fcm-enabled";
 import { isLocalOnlyMode } from "@/lib/settings/preferences";
 
 let listenersAttached = false;
@@ -10,11 +10,20 @@ let listenersAttached = false;
 export async function registerPushNotifications(
   userId: string,
 ): Promise<void> {
-  if (!isNativePlatform() || !isFirebaseConfigured() || isLocalOnlyMode()) {
+  if (
+    !isNativePlatform() ||
+    !isFcmPushEnabled() ||
+    !isFirebaseConfigured() ||
+    isLocalOnlyMode()
+  ) {
     return;
   }
 
   try {
+    const { PushNotifications } = await import(
+      "@capacitor/push-notifications"
+    );
+
     const perm = await PushNotifications.requestPermissions();
     if (perm.receive !== "granted") return;
 

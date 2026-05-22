@@ -12,9 +12,10 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: true,
+      launchAutoHide: false,
       androidSplashResourceName: "splash",
       showSpinner: false,
+      launchShowDuration: 0,
     },
     LocalNotifications: {
       iconColor: "#7c3aed",

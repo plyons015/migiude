@@ -7,7 +7,8 @@ import {
   requestNotificationPermission,
 } from "@/lib/notifications/reminders";
 import { isNativePlatform } from "@/lib/capacitor/platform";
-import { Bell, Mic, Shield, Sparkles } from "lucide-react";
+import { Bell, Mic, Shield } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -15,7 +16,7 @@ const STEPS = [
   {
     title: "Welcome to Migiude",
     body: "Capture meetings, get AI summaries, and track follow-ups — with privacy-first defaults.",
-    icon: Sparkles,
+    icon: null,
   },
   {
     title: "Privacy",
@@ -41,6 +42,7 @@ export function OnboardingView() {
 
   const current = STEPS[step];
   const Icon = current.icon;
+  const showLogo = step === 0;
   const isLast = step === STEPS.length - 1;
 
   const handleNext = async () => {
@@ -82,9 +84,21 @@ export function OnboardingView() {
   return (
     <div className="mx-auto flex min-h-full max-w-lg flex-col gap-6 p-6 pb-10">
       <div className="flex flex-1 flex-col justify-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-950/50">
-          <Icon className="h-6 w-6 text-violet-700 dark:text-violet-300" />
-        </div>
+        {showLogo ? (
+          <Image
+            src="/branding/logo.png"
+            alt="Migiude"
+            width={160}
+            height={48}
+            unoptimized
+            className="h-12 w-auto object-contain object-left"
+            priority
+          />
+        ) : Icon ? (
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-950/50">
+            <Icon className="h-6 w-6 text-violet-700 dark:text-violet-300" />
+          </div>
+        ) : null}
         <h1 className="text-2xl font-semibold tracking-tight">{current.title}</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">{current.body}</p>
         <p className="text-xs text-muted-foreground">

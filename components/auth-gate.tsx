@@ -3,6 +3,7 @@
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { isFirebaseConfigured } from "@/lib/env/client";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 type AuthGateProps = {
   children: (uid: string) => React.ReactNode;
@@ -11,6 +12,8 @@ type AuthGateProps = {
 export function AuthGate({ children }: AuthGateProps) {
   const { user, loading, ensureSignedIn } = useAuthUser();
   const firebaseReady = isFirebaseConfigured();
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   if (!firebaseReady) {
     return (
@@ -34,12 +37,32 @@ export function AuthGate({ children }: AuthGateProps) {
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           Sign in to sync notes and todos (anonymous is fine for dev).
         </p>
+        {signInError ? (
+          <p className="max-w-sm text-xs text-red-600 dark:text-red-400">
+            {signInError}
+          </p>
+        ) : null}
         <button
           type="button"
-          onClick={() => void ensureSignedIn()}
-          className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          disabled={signingIn}
+          onClick={() => {
+            setSignInError(null);
+            setSigningIn(true);
+            void ensureSignedIn()
+              .catch((e: unknown) => {
+                const msg =
+                  e instanceof Error ? e.message : "Sign-in failed";
+                setSignInError(
+                  msg.includes("not configured")
+                    ? msg
+                    : `${msg} — check network and that Anonymous sign-in is enabled in Firebase Console → Authentication.`,
+                );
+              })
+              .finally(() => setSigningIn(false));
+          }}
+          className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
         >
-          Sign in
+          {signingIn ? "Signing in…" : "Sign in"}
         </button>
       </div>
     );

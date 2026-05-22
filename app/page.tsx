@@ -1,19 +1,21 @@
 "use client";
 
+import { isNativePlatform } from "@/lib/capacitor/platform";
+import { isOnboardingComplete } from "@/lib/onboarding/preferences";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-/** Static-export friendly redirect to dashboard. */
+/** Static-export friendly redirect to dashboard (or onboarding on first native launch). */
 export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
+    if (isNativePlatform() && !isOnboardingComplete()) {
+      router.replace("/onboarding/");
+      return;
+    }
     router.replace("/dashboard/");
   }, [router]);
 
-  return (
-    <main className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
-      Opening dashboard…
-    </main>
-  );
+  return null;
 }

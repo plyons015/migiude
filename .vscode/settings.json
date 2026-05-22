@@ -1,0 +1,5 @@
+{
+  "npm.autoDetect": "off",
+  "java.import.gradle.enabled": true,
+  "java.configuration.updateBuildConfiguration": "automatic"
+}

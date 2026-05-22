@@ -15,10 +15,16 @@ export function useAuthUser() {
       setLoading(false);
       return;
     }
-    return onAuthStateChanged(auth, (next) => {
+    const timeout = window.setTimeout(() => setLoading(false), 12_000);
+    const unsub = onAuthStateChanged(auth, (next) => {
       setUser(next);
       setLoading(false);
+      window.clearTimeout(timeout);
     });
+    return () => {
+      unsub();
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   const ensureSignedIn = useCallback(async (): Promise<User> => {

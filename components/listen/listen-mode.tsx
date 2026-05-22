@@ -170,14 +170,15 @@ export function ListenMode() {
   const hasTranscript = transcriptText.trim().length > 0;
   const inMeeting = activeMeeting !== null;
 
+  // Start FGS only after Web Speech / cloud STT is actually listening (not while "starting").
   useEffect(() => {
     if (!isAndroid()) return;
-    if (isListening) void startRecordingForeground();
+    if (state === "listening") void startRecordingForeground();
     else void stopRecordingForeground();
     return () => {
       void stopRecordingForeground();
     };
-  }, [isListening]);
+  }, [state]);
 
   const seriesHint = useMemo(() => {
     if (!uid || meetings.length === 0) return null;

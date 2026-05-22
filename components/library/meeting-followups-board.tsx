@@ -33,7 +33,7 @@ function BoardColumn({
   userId: string;
 }) {
   return (
-    <div className="flex min-h-[12rem] flex-1 flex-col rounded-xl border border-border bg-muted/30">
+    <div className="flex min-h-48 flex-1 flex-col rounded-xl border border-border bg-muted/30">
       <div className="border-b border-border px-3 py-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {title}

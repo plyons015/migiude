@@ -18,9 +18,10 @@ export function CapacitorProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        await new Promise((r) => setTimeout(r, 500));
         await SplashScreen.hide();
       } catch {
-        // Splash may already be hidden
+        /* Splash may already be hidden */
       }
 
       await App.addListener("backButton", ({ canGoBack }) => {

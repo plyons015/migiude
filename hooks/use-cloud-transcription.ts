@@ -2,6 +2,7 @@
 
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useAppSettings } from "@/hooks/use-app-settings";
+import { ensureMicrophonePermission } from "@/lib/speech/microphone";
 import {
   blobToBase64,
   CloudAudioCapture,
@@ -109,6 +110,7 @@ export function useCloudTranscription(langOverride?: string) {
   const startListening = useCallback(async () => {
     setError(null);
     try {
+      await ensureMicrophonePermission();
       await ensureSignedIn();
       setState("starting");
       await captureRef.current?.start();

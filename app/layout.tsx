@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Migiude",
   description: "Privacy-first voice AI assistant",
+  icons: {
+    icon: "/branding/icon.png",
+    apple: "/branding/icon.png",
+  },
 };
 
 export default function RootLayout({

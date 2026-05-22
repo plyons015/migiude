@@ -6,7 +6,7 @@
 
 | Feature | Details |
 |---------|---------|
-| **Foreground service** | `RecordingForegroundService` + Capacitor plugin `RecordingForeground` — persistent notification while Listen is active |
+| **Foreground service** | `RecordingForegroundService` + Capacitor plugin `RecordingForeground` — mic permission required before start; API 34+ uses `FOREGROUND_SERVICE_TYPE_MICROPHONE` (see [ANDROID_CRASH_FIX.md](ANDROID_CRASH_FIX.md)) |
 | **Local notifications** | `@capacitor/local-notifications` — todo due times scheduled on device |
 | **FCM registration** | `@capacitor/push-notifications` — token saved to `users/{uid}/private/fcm` when `google-services.json` is present |
 | **Onboarding** | `/onboarding/` on first Android launch (mic + notifications + privacy) |
@@ -15,10 +15,13 @@
 
 ## Setup FCM (optional)
 
+Push is **disabled by default** (`NEXT_PUBLIC_ENABLE_FCM=false`). Enabling FCM without `google-services.json` can crash the app when you tap **Sign in**.
+
 1. Firebase Console → Project settings → add Android app `com.migiude.app`
 2. Download `google-services.json` → `android/app/google-services.json`
-3. `npm run cap:sync` then rebuild APK
-4. Token appears in Firestore under `users/{uid}/private/fcm`
+3. Set `NEXT_PUBLIC_ENABLE_FCM=true` in `.env.local`
+4. `npm run cap:sync` then rebuild APK
+5. Token appears in Firestore under `users/{uid}/private/fcm`
 
 Server-side push (summary ready, etc.) can call FCM Admin SDK with that token — not automated in v1; use [Firebase Cloud Messaging HTTP API](https://firebase.google.com/docs/cloud-messaging) or a future Cloud Function.
 

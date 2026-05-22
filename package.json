@@ -15,6 +15,7 @@
     "cap:copy": "npm run build:web && cap copy",
     "cap:android": "npm run cap:sync && cap open android",
     "cap:run:android": "npm run cap:sync && cap run android",
+    "assets:android": "npx capacitor-assets generate --android",
     "emulators": "npx -y firebase-tools@latest emulators:start",
     "functions:install": "npm install --prefix functions",
     "functions:build": "npm run build --prefix functions",
@@ -50,6 +51,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

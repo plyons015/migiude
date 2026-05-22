@@ -32,6 +32,10 @@ npm run cap:sync
 npm run cap:android
 ```
 
+**App crashes on open?** See [ANDROID_CRASH_FIX.md](ANDROID_CRASH_FIX.md) (usually need `cap:sync` or `google-services.json`).
+
+**Debug from Cursor?** See [ANDROID_DEBUG_CURSOR.md](ANDROID_DEBUG_CURSOR.md) (extensions + logcat + Chrome inspect).
+
 Build APK in Android Studio: **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
 
 ## Live reload (optional dev)

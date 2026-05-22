@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { FileText, LayoutDashboard, Library, Mic, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,21 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
       <nav className="mx-auto flex h-14 max-w-lg items-center gap-1 px-3">
-        <span className="mr-1 shrink-0 text-sm font-semibold">Migiude</span>
+        <Link
+          href="/dashboard/"
+          className="mr-2 flex shrink-0 items-center"
+          aria-label="Migiude home"
+        >
+          <Image
+            src="/branding/logo.png"
+            alt="Migiude"
+            width={112}
+            height={32}
+            unoptimized
+            className="h-8 w-auto max-w-[7rem] object-contain object-left"
+            priority
+          />
+        </Link>
         <div className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
           {links.map(({ href, label, icon: Icon }) => (
             <Button

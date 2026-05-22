@@ -1,14 +1,16 @@
+import { ensureRecordingMicPermission } from "@/lib/capacitor/recording-foreground";
 import { isAndroid, isNativePlatform } from "@/lib/capacitor/platform";
 
 /**
  * Request microphone permission without retaining audio.
- * Stops all tracks immediately — no recording buffer is kept.
+ * Stops all tracks immediately on web — no recording buffer is kept.
  *
- * On Capacitor Android, skip getUserMedia: releasing the stream right before
- * Web Speech starts often breaks recognition after refresh/navigation.
+ * On Capacitor Android we use the native permission dialog (not getUserMedia)
+ * so Web Speech is not broken by releasing a stream right before start().
  */
 export async function ensureMicrophonePermission(): Promise<void> {
   if (isNativePlatform() && isAndroid()) {
+    await ensureRecordingMicPermission();
     return;
   }
 
