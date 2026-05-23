@@ -5,7 +5,11 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "volta": {
+    "node": "22.22.0"
+  },
   "scripts": {
+    "preinstall": "node scripts/check-node-version.mjs",
     "dev": "next dev",
     "build": "next build",
     "build:web": "next build",
@@ -53,7 +57,7 @@
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

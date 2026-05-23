@@ -1,5 +1,7 @@
 "use client";
 
+import { SecuritySettings } from "@/components/auth/security-settings";
+import { SupportTicketForm } from "@/components/settings/support-ticket-form";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { useAppSettings } from "@/hooks/use-app-settings";
 import { clearAllLocalData } from "@/lib/data/local-db";
@@ -17,7 +19,8 @@ import {
   setThemePreference,
   setVoiceCommandsEnabled,
   setCommitmentAwarenessEnabled,
-  setTranscriptionMode,
+  setMeetingTranscriptionMode,
+  setQuickTranscriptionMode,
   SPEECH_LANGUAGES,
   type TranscriptionMode,
   type SpeechLanguage,
@@ -58,7 +61,8 @@ export function SettingsView() {
     smartTagsOnEnd,
     voiceCommands,
     commitmentAwareness,
-    transcriptionMode,
+    meetingTranscriptionMode,
+    quickTranscriptionMode,
   } = useAppSettings();
   const [status, setStatus] = useState<string | null>(null);
 
@@ -106,34 +110,63 @@ export function SettingsView() {
         <CardHeader>
           <CardTitle className="text-base">Voice & transcription</CardTitle>
           <CardDescription>
-            Browser speech (free, device-dependent) or meeting mode (cloud STT +
-            speakers)
+            Set once — mic and Start meeting use different modes (no switching
+            mid-session)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="transcription-mode">Transcription</Label>
+            <Label htmlFor="quick-transcription-mode">Quick record (mic)</Label>
             <Select
-              value={localOnly ? "browser" : transcriptionMode}
+              value={localOnly ? "browser" : quickTranscriptionMode}
               disabled={localOnly}
               onValueChange={(v) =>
-                setTranscriptionMode(v as TranscriptionMode)
+                setQuickTranscriptionMode(v as TranscriptionMode)
               }
             >
-              <SelectTrigger id="transcription-mode">
+              <SelectTrigger id="quick-transcription-mode">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="browser">Browser speech (quick)</SelectItem>
-                <SelectItem value="cloud">Meeting mode — cloud STT</SelectItem>
+                <SelectItem value="browser">Browser speech — fastest</SelectItem>
+                <SelectItem value="cloud">Cloud STT — speakers</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
               {localOnly
-                ? "Local-only mode keeps browser speech only (no audio upload)."
-                : transcriptionMode === "cloud"
-                  ? "Short audio chunks go to Firebase → Gemini for transcription with speaker labels. Works on networks where browser speech fails (e.g. some Starlink setups). Uses AI billing."
-                  : "Uses Chrome Web Speech — no audio leaves the device."}
+                ? "Local-only: browser speech only."
+                : quickTranscriptionMode === "cloud"
+                  ? "Cloud chunks for the big mic button. Uses AI billing."
+                  : "Default for counseling on the fly — no audio upload."}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="meeting-transcription-mode">
+              Meetings (Start meeting)
+            </Label>
+            <Select
+              value={localOnly ? "browser" : meetingTranscriptionMode}
+              disabled={localOnly}
+              onValueChange={(v) =>
+                setMeetingTranscriptionMode(v as TranscriptionMode)
+              }
+            >
+              <SelectTrigger id="meeting-transcription-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="browser">Browser speech</SelectItem>
+                <SelectItem value="cloud">
+                  Cloud STT — speakers (recommended)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {localOnly
+                ? "Local-only: browser speech only."
+                : meetingTranscriptionMode === "cloud"
+                  ? "Speaker labels in the meeting room. Works when browser speech fails."
+                  : "Browser speech for full meetings — no speaker split."}
             </p>
           </div>
           <Label htmlFor="speech-lang">Recognition language</Label>
@@ -251,6 +284,10 @@ export function SettingsView() {
           </div>
         </CardContent>
       </Card>
+
+      <SecuritySettings />
+
+      <SupportTicketForm />
 
       <Card>
         <CardHeader>

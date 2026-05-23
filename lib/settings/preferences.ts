@@ -1,4 +1,5 @@
 export type TranscriptionMode = "browser" | "cloud";
+export type TranscriptionContext = "meeting" | "quick";
 
 export type SpeechLanguage =
   | "en-US"
@@ -29,7 +30,27 @@ const KEYS = {
   voiceCommands: "migiude-voice-commands",
   commitmentAwareness: "migiude-commitment-awareness",
   transcriptionMode: "migiude-transcription-mode",
+  meetingTranscription: "migiude-meeting-transcription-mode",
+  quickTranscription: "migiude-quick-transcription-mode",
 } as const;
+
+function migrateTranscriptionPrefs(): void {
+  if (typeof window === "undefined") return;
+  const hasMeeting = localStorage.getItem(KEYS.meetingTranscription);
+  const hasQuick = localStorage.getItem(KEYS.quickTranscription);
+  if (hasMeeting && hasQuick) return;
+  const legacy = localStorage.getItem(KEYS.transcriptionMode);
+  if (!hasMeeting) {
+    const mode =
+      legacy === "cloud" || legacy === "browser" ? legacy : "cloud";
+    localStorage.setItem(KEYS.meetingTranscription, mode);
+  }
+  if (!hasQuick) {
+    const mode =
+      legacy === "cloud" || legacy === "browser" ? legacy : "browser";
+    localStorage.setItem(KEYS.quickTranscription, mode);
+  }
+}
 
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -140,17 +161,53 @@ export function setCommitmentAwarenessEnabled(enabled: boolean): void {
   window.dispatchEvent(new Event("migiude-settings"));
 }
 
+/** @deprecated Use getMeetingTranscriptionMode / getQuickTranscriptionMode */
 export function getTranscriptionMode(): TranscriptionMode {
+  return getMeetingTranscriptionMode();
+}
+
+/** @deprecated Use setMeetingTranscriptionMode / setQuickTranscriptionMode */
+export function setTranscriptionMode(mode: TranscriptionMode): void {
+  setMeetingTranscriptionMode(mode);
+  setQuickTranscriptionMode(mode);
+}
+
+export function getMeetingTranscriptionMode(): TranscriptionMode {
+  if (typeof window === "undefined") return "cloud";
+  migrateTranscriptionPrefs();
+  const v = localStorage.getItem(KEYS.meetingTranscription);
+  if (v === "cloud" && !isLocalOnlyMode()) return "cloud";
+  if (v === "browser") return "browser";
+  return "cloud";
+}
+
+export function getQuickTranscriptionMode(): TranscriptionMode {
   if (typeof window === "undefined") return "browser";
-  const v = localStorage.getItem(KEYS.transcriptionMode);
+  migrateTranscriptionPrefs();
+  const v = localStorage.getItem(KEYS.quickTranscription);
   if (v === "cloud" && !isLocalOnlyMode()) return "cloud";
   return "browser";
 }
 
-export function setTranscriptionMode(mode: TranscriptionMode): void {
+export function setMeetingTranscriptionMode(mode: TranscriptionMode): void {
   const effective = isLocalOnlyMode() ? "browser" : mode;
+  localStorage.setItem(KEYS.meetingTranscription, effective);
   localStorage.setItem(KEYS.transcriptionMode, effective);
   window.dispatchEvent(new Event("migiude-settings"));
+}
+
+export function setQuickTranscriptionMode(mode: TranscriptionMode): void {
+  const effective = isLocalOnlyMode() ? "browser" : mode;
+  localStorage.setItem(KEYS.quickTranscription, effective);
+  window.dispatchEvent(new Event("migiude-settings"));
+}
+
+export function getTranscriptionModeForContext(
+  context: TranscriptionContext,
+): TranscriptionMode {
+  return context === "meeting"
+    ? getMeetingTranscriptionMode()
+    : getQuickTranscriptionMode();
 }
 
 export function subscribeSettings(callback: () => void): () => void {

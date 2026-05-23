@@ -8,7 +8,8 @@ import {
   getRollingSummaryMinutes,
   isAutoAiOnMeetingEnd,
   isCommitmentAwarenessEnabled,
-  getTranscriptionMode,
+  getMeetingTranscriptionMode,
+  getQuickTranscriptionMode,
   isLocalOnlyMode,
   isRollingSummaryEnabled,
   isSmartTagsOnEnd,
@@ -44,8 +45,12 @@ export function useAppSettings() {
     isCommitmentAwarenessEnabled,
     true,
   );
-  const transcriptionMode = useSettingsSnapshot(
-    getTranscriptionMode,
+  const meetingTranscriptionMode = useSettingsSnapshot(
+    getMeetingTranscriptionMode,
+    "cloud" as TranscriptionMode,
+  );
+  const quickTranscriptionMode = useSettingsSnapshot(
+    getQuickTranscriptionMode,
     "browser" as TranscriptionMode,
   );
 
@@ -60,6 +65,8 @@ export function useAppSettings() {
     smartTagsOnEnd,
     voiceCommands,
     commitmentAwareness,
-    transcriptionMode: transcriptionMode as TranscriptionMode,
+    meetingTranscriptionMode:
+      meetingTranscriptionMode as TranscriptionMode,
+    quickTranscriptionMode: quickTranscriptionMode as TranscriptionMode,
   };
 }

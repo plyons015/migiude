@@ -1,19 +1,31 @@
 "use client";
 
+import { AuthScreen } from "@/components/auth/auth-screen";
 import { useAuthUser } from "@/hooks/use-auth-user";
+import { signOutUser } from "@/lib/firebase/auth";
+import { isAppSession } from "@/lib/firebase/session-policy";
+import { allowAnonymousSignIn } from "@/lib/env/auth-flags";
 import { isFirebaseConfigured } from "@/lib/env/client";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 
 type AuthGateProps = {
   children: (uid: string) => React.ReactNode;
 };
 
 export function AuthGate({ children }: AuthGateProps) {
-  const { user, loading, ensureSignedIn } = useAuthUser();
+  const { user, loading } = useAuthUser();
   const firebaseReady = isFirebaseConfigured();
-  const [signingIn, setSigningIn] = useState(false);
-  const [signInError, setSignInError] = useState<string | null>(null);
+  const clearedAnonymous = useRef(false);
+
+  // Drop legacy anonymous sessions so email/password sign-in is required.
+  useEffect(() => {
+    if (loading || !user || clearedAnonymous.current) return;
+    if (user.isAnonymous && !allowAnonymousSignIn()) {
+      clearedAnonymous.current = true;
+      void signOutUser();
+    }
+  }, [loading, user]);
 
   if (!firebaseReady) {
     return (
@@ -31,42 +43,9 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Sign in to sync notes and todos (anonymous is fine for dev).
-        </p>
-        {signInError ? (
-          <p className="max-w-sm text-xs text-red-600 dark:text-red-400">
-            {signInError}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          disabled={signingIn}
-          onClick={() => {
-            setSignInError(null);
-            setSigningIn(true);
-            void ensureSignedIn()
-              .catch((e: unknown) => {
-                const msg =
-                  e instanceof Error ? e.message : "Sign-in failed";
-                setSignInError(
-                  msg.includes("not configured")
-                    ? msg
-                    : `${msg} — check network and that Anonymous sign-in is enabled in Firebase Console → Authentication.`,
-                );
-              })
-              .finally(() => setSigningIn(false));
-          }}
-          className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          {signingIn ? "Signing in…" : "Sign in"}
-        </button>
-      </div>
-    );
+  if (!isAppSession(user)) {
+    return <AuthScreen />;
   }
 
-  return <>{children(user.uid)}</>;
+  return <>{children(user!.uid)}</>;
 }

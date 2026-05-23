@@ -203,7 +203,8 @@ Build: `npm run cap:sync` → `npm run cap:android` → signed APK. See [ANDROID
 - Cloud STT: short chunks sent for transcription, not retained server-side (per product copy)
 - **Local-only mode** — IndexedDB only, no Firestore sync; forces browser speech
 - AI keys only on **Firebase Functions** (Blaze + billing)
-- Anonymous Firebase auth path for personal use
+- **Email/password** sign-in with optional **2FA** (authenticator TOTP + SMS backup) — see [AUTH.md](AUTH.md)
+- Anonymous sign-in dev-only (`NEXT_PUBLIC_ALLOW_ANONYMOUS=true`)
 
 ---
 
@@ -227,9 +228,16 @@ Build: `npm run cap:sync` → `npm run cap:android` → signed APK. See [ANDROID
 - Notion / Monday two-way sync
 - Full project management (Gantt, capacity, CRM)
 - Calendar integration (planned v2)
-- Always-on ambient background listening
+- Always-on ambient background listening - Never to be included due to HIPAA COncerns
 - iOS app (Android-focused v1)
-- PWA install prompt (by design)
+- PWA install prompt (by design) - Never to be included
+
+---
+
+## Admin (operators)
+
+- Web dashboard: **`/admin/`** — Google sign-in + email allowlist
+- See **[ADMIN.md](ADMIN.md)** for setup, callables, and Stripe roadmap
 
 ---
 
@@ -237,6 +245,7 @@ Build: `npm run cap:sync` → `npm run cap:android` → signed APK. See [ANDROID
 
 | Doc | Topic |
 |-----|--------|
+| [ADMIN.md](ADMIN.md) | Admin dashboard setup & security |
 | [PHASES.md](PHASES.md) | Master phase checklist |
 | [ROADMAP.md](ROADMAP.md) | Vision & competitors |
 | [PHASE0.md](PHASE0.md)–[PHASE11.md](PHASE11.md) | Per-phase implementation notes |

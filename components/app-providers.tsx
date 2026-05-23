@@ -1,5 +1,6 @@
 "use client";
 
+import { AppSessionGate } from "@/components/app-session-gate";
 import { AppBootstrap } from "@/components/branding/app-bootstrap";
 import { CapacitorProvider } from "@/components/capacitor-provider";
 import { FirebaseProvider } from "@/components/firebase-provider";
@@ -15,9 +16,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         <ThemeProvider>
           <FirebaseProvider>
             <OnboardingGate>
-              <PushBootstrap>
-                <RemindersBootstrap>{children}</RemindersBootstrap>
-              </PushBootstrap>
+              <AppSessionGate>
+                <PushBootstrap>
+                  <RemindersBootstrap>{children}</RemindersBootstrap>
+                </PushBootstrap>
+              </AppSessionGate>
             </OnboardingGate>
           </FirebaseProvider>
         </ThemeProvider>

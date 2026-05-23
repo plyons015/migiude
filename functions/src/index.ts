@@ -7,6 +7,19 @@ import { toAiHttpsError } from "./ai/errors";
 import { assertProviderConfigured, runAiByProvider } from "./ai/router";
 import type { AiProcessResponse } from "./ai/types";
 import { transcribeAudioWithGemini } from "./stt";
+import {
+  adminGetDashboard,
+  adminGetUser,
+  adminListFlags,
+  adminListSupportTickets,
+  adminListUsers,
+  adminResolveFlag,
+  adminUpdateSupportTicket,
+  adminUpdateUser,
+  adminVerify,
+} from "./admin/handlers";
+import { recordUsage, touchUserProfile } from "./admin/usage";
+import { submitSupportTicket } from "./support";
 
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
 
@@ -67,6 +80,12 @@ export const aiProcess = onCall(
       });
 
       assertProviderConfigured(provider);
+
+      const uid = request.auth.uid;
+      void touchUserProfile(uid, {
+        email: request.auth.token.email ?? null,
+      }).catch(() => undefined);
+      void recordUsage(uid, "aiCalls").catch(() => undefined);
 
       const result = await runAiByProvider(provider, text, task);
       return { result, provider, task };
@@ -136,6 +155,15 @@ export const transcribeAudio = onCall(
     });
 
     try {
+      const uid = request.auth.uid;
+      const bytesApprox = Math.round((audioBase64.length * 3) / 4);
+      void touchUserProfile(uid, {
+        email: request.auth.token.email ?? null,
+      }).catch(() => undefined);
+      void recordUsage(uid, "cloudSttChunks", 1, {
+        cloudSttBytes: bytesApprox,
+      }).catch(() => undefined);
+
       const { segments } = await transcribeAudioWithGemini(
         audioBase64,
         mimeType,
@@ -150,3 +178,16 @@ export const transcribeAudio = onCall(
     }
   },
 );
+
+export {
+  adminVerify,
+  adminGetDashboard,
+  adminListUsers,
+  adminUpdateUser,
+  adminListFlags,
+  adminResolveFlag,
+  adminGetUser,
+  adminListSupportTickets,
+  adminUpdateSupportTicket,
+  submitSupportTicket,
+};

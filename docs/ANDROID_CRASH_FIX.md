@@ -177,7 +177,7 @@ Note **when** it crashes:
 |------|----------------|
 | Immediately on icon tap | Missing `assets/public`, Firebase native, Gradle/SDK |
 | After onboarding | Mic permission / Web Speech |
-| When tapping Listen / Start meeting | Mic permission or foreground service — fixed: native mic prompt + FGS only after `listening` state |
+| When tapping Listen / Start meeting | `ForegroundServiceDidNotStartInTimeException` — fixed: `ServiceCompat.startForeground`, valid `R.mipmap.ic_launcher` icon, start from Activity |
 | After sign-in | Firestore rules or push register |
 
 Share the **Logcat** lines around `FATAL EXCEPTION` for a targeted fix.

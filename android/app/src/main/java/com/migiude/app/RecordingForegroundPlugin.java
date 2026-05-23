@@ -56,12 +56,17 @@ public class RecordingForegroundPlugin extends Plugin {
             return;
         }
 
+        if (getActivity() == null) {
+            call.reject("Cannot start recording service — app not in foreground");
+            return;
+        }
+
         Intent intent = new Intent(getContext(), RecordingForegroundService.class);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                getContext().startForegroundService(intent);
+                getActivity().startForegroundService(intent);
             } else {
-                getContext().startService(intent);
+                getActivity().startService(intent);
             }
             call.resolve();
         } catch (Exception e) {

@@ -12,9 +12,9 @@ This project uses **Android Gradle Plugin 8.10.1** to match Android Studio’s s
 
 ## Prerequisites
 
-- **Node.js 22+** (required by Capacitor CLI 8). With nvm: `nvm use` in the project root (see `.nvmrc`).
+- **Node.js 22+** (required by Capacitor CLI 8). With nvm: `nvm use` in the project root (see `.nvmrc`). See [NODE22.md](NODE22.md).
 - [Android Studio](https://developer.android.com/studio) with SDK 34+
-- JDK 17+
+- **JDK 21+** for Gradle (Capacitor 8). Node 22 ≠ Java — see [ANDROID_JDK.md](ANDROID_JDK.md).
 
 ## Commands
 

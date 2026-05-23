@@ -6,6 +6,15 @@ Built as web app (Next.js) for easy development, wrapped as Android app via Capa
 
 No PWA features — focused on native Android experience.
 
+## Node.js 22 (required)
+
+```powershell
+node -v    # must be v22.x
+nvm use    # if you use nvm-windows (.nvmrc → 22.22.0)
+```
+
+See [docs/NODE22.md](docs/NODE22.md) if `npm install` or `cap:sync` fails on an older Node.
+
 ## Android (Capacitor)
 
 ```bash

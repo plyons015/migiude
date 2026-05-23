@@ -98,6 +98,51 @@ Use **Tasks: Run Task** (our `tasks.json` shell tasks) or the terminal — not t
 
 ---
 
+## Run / Debug buttons greyed out (“Module not specified”)
+
+Studio will not enable ▶ or 🐛 until **all** of this is true:
+
+1. **Open the right folder** — `migiude-1\android` (not the parent `migiude-1` folder).
+2. **Gradle sync finished** — bottom status bar: no “Sync failed”; elephant icon done.
+   - **File → Sync Project with Gradle Files**
+   - First time can take several minutes; needs internet.
+3. **Run configuration**
+   - **Run → Edit Configurations** → **app** (delete **app2** if it exists).
+   - **Module:** pick **`app`** from the dropdown (if empty, sync failed — fix step 2).
+   - **Launch:** Default Activity.
+4. **Device selected** — toolbar device dropdown: your **phone** (USB debugging on) or an **emulator**.  
+   If empty: plug in phone → `adb devices` → or **Device Manager** → create/start a virtual device.
+
+When the module and device are set, ▶ and 🐛 turn green.
+
+**Bypass Studio:** from repo root:
+
+```powershell
+npm run cap:run:android
+```
+
+---
+
+## Fix Android Studio run config (`app2`)
+
+If you only see **app2** or get “no runners for Android App”:
+
+1. **Close Android Studio**
+2. In File Explorer, delete (if present):  
+   `android\.idea\workspace.xml`  
+   (Studio recreates it; this clears broken local configs.)
+3. **Reopen** the `android` folder:  
+   `npm run cap:android`  
+   or **File → Open** → `migiude-1\android`
+4. **Run → Edit Configurations** → select **app2** → click **−** to delete
+5. You should see **app** (from `android/.idea/runConfigurations/app.xml`).  
+   Module: **android.app**, Launch: **Default Activity**
+6. Toolbar dropdown → **app** → green **Run** ▶
+
+**Skip Studio entirely:** `npm run cap:run:android` from the project root.
+
+---
+
 ## Quick checklist
 
 | Step | Tool |

@@ -2,7 +2,8 @@
 
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { signInAnonymousUser } from "@/lib/firebase/auth";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onAuthStateChanged, reload, type User } from "firebase/auth";
+import { allowAnonymousSignIn } from "@/lib/env/auth-flags";
 import { useCallback, useEffect, useState } from "react";
 
 export function useAuthUser() {
@@ -29,8 +30,25 @@ export function useAuthUser() {
 
   const ensureSignedIn = useCallback(async (): Promise<User> => {
     if (user) return user;
-    return signInAnonymousUser();
+    if (allowAnonymousSignIn()) {
+      return signInAnonymousUser();
+    }
+    throw new Error("Sign in with email and password to continue.");
   }, [user]);
 
-  return { user, loading, uid: user?.uid ?? null, ensureSignedIn };
+  const reloadUser = useCallback(async (): Promise<boolean> => {
+    const auth = getFirebaseAuth();
+    if (!auth?.currentUser) return false;
+    await reload(auth.currentUser);
+    setUser(auth.currentUser);
+    return auth.currentUser.emailVerified;
+  }, []);
+
+  return {
+    user,
+    loading,
+    uid: user?.uid ?? null,
+    ensureSignedIn,
+    reload: reloadUser,
+  };
 }

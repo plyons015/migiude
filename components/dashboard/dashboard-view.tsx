@@ -1,8 +1,10 @@
 "use client";
 
+import { EmailVerificationBanner } from "@/components/auth/email-verification-banner";
 import { DailyRecapCard } from "@/components/dashboard/daily-recap-card";
 import { TodoList } from "@/components/todos/todo-list";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,8 +15,10 @@ import {
 import { useMeetings } from "@/hooks/use-meetings";
 import { useNotes } from "@/hooks/use-notes";
 import { useTodos } from "@/hooks/use-todos";
+import { useAuthUser } from "@/hooks/use-auth-user";
+import { signOutUser } from "@/lib/firebase/auth";
 import { format } from "date-fns";
-import { Calendar, FileText, ListTodo, Mic, Plus } from "lucide-react";
+import { Calendar, FileText, ListTodo, LogOut, Mic, Plus } from "lucide-react";
 import Link from "next/link";
 
 type DashboardViewProps = {
@@ -22,6 +26,7 @@ type DashboardViewProps = {
 };
 
 export function DashboardView({ userId }: DashboardViewProps) {
+  const { user } = useAuthUser();
   const { notes } = useNotes(userId);
   const { meetings } = useMeetings(userId);
   const { openTodos, dueSoon } = useTodos(userId);
@@ -45,12 +50,35 @@ export function DashboardView({ userId }: DashboardViewProps) {
     },
   ];
 
+  const displayName =
+    user?.displayName?.trim() ||
+    user?.email?.split("@")[0] ||
+    "there";
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Quick actions and recents</p>
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-semibold tracking-tight">
+            Hello, {displayName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Quick actions and recents
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          onClick={() => void signOutUser()}
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </Button>
       </header>
+
+      <EmailVerificationBanner />
 
       <div className="grid grid-cols-2 gap-3">
         {quickActions.map(({ href, label, icon: Icon, desc }) => (

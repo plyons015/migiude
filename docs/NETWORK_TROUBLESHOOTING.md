@@ -20,6 +20,31 @@ Chrome’s Web Speech API talks to **Google’s speech servers**, not your Wi‑
 | Cloud STT | Browser speech | Inverse — use cloud STT on Starlink |
 | Everything on cellular | Fails on home Wi‑Fi | Router/DNS/firewall on Starlink |
 
+## Symptom: `ERR_NAME_NOT_RESOLVED` on `*.cloudfunctions.net` (admin / AI)
+
+The browser cannot **resolve DNS** for Firebase Functions (e.g. `us-central1-PROJECT.cloudfunctions.net`). The functions are deployed; your **network or DNS server** is the problem.
+
+### Fix (Windows)
+
+1. **Settings → Network & Internet → Wi‑Fi/Ethernet → your network → DNS**
+2. Set **Manual** DNS: **8.8.8.8** and **1.1.1.1** (or 8.8.4.4)
+3. PowerShell: `ipconfig /flushdns`
+4. Reload `/admin/`
+
+### Also try
+
+- Disable **VPN / proxy / Pi-hole / ad blocker**
+- **Phone hotspot** (confirms home router DNS is broken)
+- Starlink / mesh routers: some default DNS servers fail on `cloudfunctions.net` while Google DNS works
+
+### Verify
+
+```powershell
+nslookup us-central1-migiude-app-plyons015.cloudfunctions.net 8.8.8.8
+```
+
+Should return an address (e.g. `216.239.36.54`). If that works but the browser still fails, flush DNS and restart the browser.
+
 ## Symptom: IPv6 / flaky HTTPS
 
 - Ensure `cloudfunctions.net` and `googleapis.com` are reachable.

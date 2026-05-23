@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppHeader } from "@/components/app-header";
+import { AppChrome } from "@/components/app-chrome";
 import { AppProviders } from "@/components/app-providers";
 import "./globals.css";
 
@@ -35,8 +35,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         <AppProviders>
-          <AppHeader />
-          <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          <AppChrome>{children}</AppChrome>
         </AppProviders>
       </body>
     </html>

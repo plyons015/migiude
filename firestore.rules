@@ -6,5 +6,27 @@ service cloud.firestore {
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Admin-only data — managed via Cloud Functions + Admin SDK
+    match /userProfiles/{uid} {
+      allow read, write: if false;
+    }
+    match /usageDaily/{day}/users/{uid} {
+      allow read, write: if false;
+    }
+    match /flags/{flagId} {
+      allow read, write: if false;
+    }
+    match /adminConfig/{doc} {
+      allow read, write: if false;
+    }
+
+    // Users can submit support tickets; admins read via Functions
+    match /supportTickets/{ticketId} {
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasAll(['uid', 'message', 'status']);
+      allow read, update, delete: if false;
+    }
   }
 }

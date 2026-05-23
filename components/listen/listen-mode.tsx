@@ -121,7 +121,6 @@ export function ListenMode() {
     smartTagsOnEnd,
     voiceCommands,
     commitmentAwareness,
-    transcriptionMode,
     localOnly,
   } = useAppSettings();
   const { provider } = useAiSettings();
@@ -147,6 +146,8 @@ export function ListenMode() {
     });
   }, [activeMeeting, meetingTitle, meetingTags]);
 
+  const inMeeting = activeMeeting !== null;
+
   const {
     supported,
     state,
@@ -159,7 +160,10 @@ export function ListenMode() {
     stopListening,
     clearTranscript,
     restoreTranscript,
-  } = useTranscription();
+    transcriptionMode,
+    meetingTranscriptionMode,
+    quickTranscriptionMode,
+  } = useTranscription(inMeeting ? "meeting" : "quick");
 
   const { supported: wakeLockSupported } = useWakeLock(isListening);
   const { uid, ensureSignedIn } = useAuthUser();
@@ -168,14 +172,18 @@ export function ListenMode() {
   const platform = getCapacitorPlatform();
   const transcriptText = fullTranscript;
   const hasTranscript = transcriptText.trim().length > 0;
-  const inMeeting = activeMeeting !== null;
 
-  // Start FGS only after Web Speech / cloud STT is actually listening (not while "starting").
+  // Foreground service after mic is active (not during "starting"). Small delay avoids
+  // racing Web Speech permission with startForegroundService on some devices.
   useEffect(() => {
     if (!isAndroid()) return;
-    if (state === "listening") void startRecordingForeground();
-    else void stopRecordingForeground();
+    if (state !== "listening") {
+      void stopRecordingForeground();
+      return;
+    }
+    const id = window.setTimeout(() => void startRecordingForeground(), 250);
     return () => {
+      window.clearTimeout(id);
       void stopRecordingForeground();
     };
   }, [state]);
@@ -256,7 +264,7 @@ export function ListenMode() {
     clearTranscript();
     setHighlights([]);
     clearListenSession();
-    void startListening();
+    void startListening({ context: "meeting" });
   },
     [clearTranscript, startListening],
   );
@@ -553,8 +561,14 @@ export function ListenMode() {
     );
   }
 
+  const configuredMode = inMeeting
+    ? meetingTranscriptionMode
+    : quickTranscriptionMode;
+  const displayMode = isListening ? transcriptionMode : configuredMode;
+  const modeLabel = inMeeting ? "Meeting" : "Quick";
+
   if (!supported) {
-    const cloudMode = transcriptionMode === "cloud" && !localOnly;
+    const cloudMode = configuredMode === "cloud" && !localOnly;
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <AlertCircle className="h-10 w-10 text-amber-500" />
@@ -594,20 +608,20 @@ export function ListenMode() {
           </div>
           <span
             className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium ${
-              transcriptionMode === "cloud" && !localOnly
+              displayMode === "cloud" && !localOnly
                 ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
                 : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
             }`}
             title={
-              transcriptionMode === "cloud" && !localOnly
+              displayMode === "cloud" && !localOnly
                 ? "Short audio chunks are sent for transcription and not kept on the server"
                 : "No audio files are written to disk"
             }
           >
             <Shield className="h-3 w-3" />
-            {transcriptionMode === "cloud" && !localOnly
-              ? "Cloud STT"
-              : "Audio discarded"}
+            {displayMode === "cloud" && !localOnly
+              ? `${modeLabel} · cloud`
+              : `${modeLabel} · on-device`}
           </span>
         </div>
 
@@ -822,7 +836,13 @@ export function ListenMode() {
         <div className="flex items-center justify-center gap-4">
           <button
             type="button"
-            onClick={() => void (isListening ? stopListening() : startListening())}
+            onClick={() =>
+              void (isListening
+                ? stopListening()
+                : startListening({
+                    context: inMeeting ? "meeting" : "quick",
+                  }))
+            }
             aria-pressed={isListening}
             aria-label={isListening ? "Stop listening" : "Start listening"}
             className={`flex h-20 w-20 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95 ${
