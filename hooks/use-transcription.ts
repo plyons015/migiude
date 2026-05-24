@@ -16,7 +16,11 @@ import {
 } from "@/lib/capacitor/recording-foreground";
 import { isAndroid } from "@/lib/capacitor/platform";
 import type { CloudSttUiPhase } from "@/hooks/use-cloud-transcription";
-import { useCallback, useMemo, useState } from "react";
+import {
+  minutesFromMs,
+  reportTrialUsage,
+} from "@/lib/plan/report-trial-usage";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 export type StartListeningOptions = {
   context?: TranscriptionContext;
@@ -47,6 +51,7 @@ export function useTranscription(
   const [activeSessionMode, setActiveSessionMode] =
     useState<TranscriptionMode | null>(null);
   const [captureWarning, setCaptureWarning] = useState<string | null>(null);
+  const browserStartedAtRef = useRef<number | null>(null);
 
   const browser = useSpeechRecognition(langOverride);
   const cloud = useCloudTranscription(langOverride);
@@ -94,6 +99,7 @@ export function useTranscription(
         if (mode === "cloud") {
           await cloud.startListening();
         } else {
+          browserStartedAtRef.current = Date.now();
           await browser.startListening();
         }
       } catch (error) {
@@ -107,10 +113,19 @@ export function useTranscription(
   );
 
   const stopListening = useCallback(() => {
-    if (sessionMode === "cloud") {
+    const mode = sessionMode;
+    if (mode === "cloud") {
       cloud.stopListening();
     } else {
       browser.stopListening();
+      const started = browserStartedAtRef.current;
+      browserStartedAtRef.current = null;
+      if (started != null) {
+        const minutes = minutesFromMs(Date.now() - started);
+        if (minutes > 0) {
+          void reportTrialUsage({ onDeviceMinutes: minutes }).catch(() => undefined);
+        }
+      }
     }
     setActiveSessionMode(null);
     if (isAndroid()) {

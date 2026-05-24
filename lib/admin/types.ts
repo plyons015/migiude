@@ -83,10 +83,28 @@ export type AdminUserDetail = {
   emailVerified: boolean;
   role: string;
   plan: string;
+  planOverride: boolean;
   suspended: boolean;
   platform: string | null;
   adminNotes: string;
   trialEndsAt: number | null;
+  trial: {
+    active: boolean;
+    expired: boolean;
+    requiresUpgrade: boolean;
+    endsAt: number | null;
+    daysRemaining: number | null;
+    limits: {
+      meetingMinutes: number;
+      aiCalls: number;
+      onDeviceMinutes: number;
+    };
+    usage: {
+      aiCalls: number;
+      meetingMinutes: number;
+      onDeviceMinutes: number;
+    };
+  };
   usageByDay: Array<{
     day: string;
     aiCalls: number;

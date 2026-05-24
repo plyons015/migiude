@@ -99,7 +99,7 @@ export function HelpHubPanel({
           {tab === "guide" ? (
             <HelpGuidePanel />
           ) : (
-            <HelpMessagesPanel active={tab === "messages" && open} />
+            <HelpMessagesPanel />
           )}
         </div>
       </div>

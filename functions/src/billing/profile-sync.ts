@@ -2,6 +2,11 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import type Stripe from "stripe";
 import { planFromStripePriceId, type BillingPlanId } from "./stripe-client";
 
+async function profileAllowsStripePlanWrite(uid: string): Promise<boolean> {
+  const snap = await getFirestore().doc(`userProfiles/${uid}`).get();
+  return snap.data()?.planOverride !== true;
+}
+
 export async function logBillingEvent(input: {
   type: string;
   uid?: string | null;
@@ -37,9 +42,10 @@ export async function syncUserPlanFromSubscription(
       : "free";
 
   const db = getFirestore();
+  const allowPlanWrite = await profileAllowsStripePlanWrite(uid);
   await db.doc(`userProfiles/${uid}`).set(
     {
-      plan,
+      ...(allowPlanWrite ? { plan } : {}),
       stripeCustomerId:
         typeof subscription.customer === "string"
           ? subscription.customer
@@ -68,14 +74,15 @@ export async function clearSubscriptionForUid(
   reason: string,
 ): Promise<void> {
   const db = getFirestore();
+  const allowPlanWrite = await profileAllowsStripePlanWrite(uid);
   await db.doc(`userProfiles/${uid}`).set(
     {
-      plan: "free",
+      ...(allowPlanWrite ? { plan: "free" } : {}),
       subscriptionStatus: reason,
       stripeSubscriptionId: null,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
   );
-  await logBillingEvent({ type: reason, uid, plan: "free" });
+  await logBillingEvent({ type: reason, uid, plan: allowPlanWrite ? "free" : null });
 }

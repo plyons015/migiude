@@ -26,6 +26,10 @@ import {
 import type { TranscriptionMode } from "@/lib/speech/types";
 import type { TranscriptChunk } from "@/lib/speech/types";
 import { format } from "date-fns";
+import {
+  minutesFromMs,
+  reportTrialUsage,
+} from "@/lib/plan/report-trial-usage";
 import { useCallback, useEffect, useState } from "react";
 
 export type SavedCapture = {
@@ -239,6 +243,12 @@ export function useListenSession(userId: string) {
           agenda: activeMeeting.agenda,
           templateId: activeMeeting.templateId,
         });
+        const meetingMinutes = minutesFromMs(
+          Date.now() - activeMeeting.startedAt,
+        );
+        if (meetingMinutes > 0) {
+          void reportTrialUsage({ meetingMinutes }).catch(() => undefined);
+        }
         setSavedCapture({
           kind: "meeting",
           noteId: result.noteId,

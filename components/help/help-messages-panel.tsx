@@ -3,16 +3,10 @@
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useUserSupportTickets } from "@/hooks/use-user-support-tickets";
 import { submitSupportTicket } from "@/lib/support/submit-ticket";
-import { markSupportTicketsSeen } from "@/lib/support/user-tickets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-
-type Props = {
-  /** Called when user opens this tab so FAB badge can clear. */
-  active?: boolean;
-};
+import { Check, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 function formatWhen(date: Date | null): string {
   if (!date) return "";
@@ -24,20 +18,20 @@ function formatWhen(date: Date | null): string {
   });
 }
 
-export function HelpMessagesPanel({ active }: Props) {
+export function HelpMessagesPanel() {
   const { user } = useAuthUser();
-  const { tickets, loading, error } = useUserSupportTickets();
+  const {
+    tickets,
+    loading,
+    error,
+    unreadCount,
+    isTicketUnread,
+    markTicketSeen,
+    markAllRepliesSeen,
+  } = useUserSupportTickets();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!active || tickets.length === 0) return;
-    const withReplies = tickets
-      .filter((t) => t.adminReply && t.status === "resolved")
-      .map((t) => t.id);
-    markSupportTicketsSeen(withReplies);
-  }, [active, tickets]);
 
   const handleSubmit = async () => {
     if (!user) {
@@ -81,38 +75,83 @@ export function HelpMessagesPanel({ active }: Props) {
       ) : tickets.length === 0 ? (
         <p className="text-sm text-muted-foreground">No messages yet.</p>
       ) : (
-        <ul className="max-h-[40vh] space-y-3 overflow-y-auto pr-1">
-          {tickets.map((t) => (
-            <li
-              key={t.id}
-              className="rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700"
-            >
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <Badge variant="outline" className="text-[10px]">
-                  {t.status}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground">
-                  {formatWhen(t.updatedAt ?? t.createdAt)}
-                </span>
-              </div>
-              <p className="whitespace-pre-wrap">{t.message}</p>
-              {t.adminReply ? (
-                <div className="mt-2 rounded-md bg-violet-50 px-2 py-1.5 text-xs dark:bg-violet-950/40">
-                  <span className="font-medium text-violet-900 dark:text-violet-200">
-                    Support:{" "}
-                  </span>
-                  <span className="whitespace-pre-wrap text-violet-950 dark:text-violet-100">
-                    {t.adminReply}
-                  </span>
-                </div>
-              ) : t.status === "open" ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Waiting for a reply…
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        <>
+          {unreadCount > 0 ? (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <p className="text-xs text-amber-950 dark:text-amber-100">
+                {unreadCount} new {unreadCount === 1 ? "reply" : "replies"}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0 text-xs"
+                onClick={() => markAllRepliesSeen()}
+              >
+                <Check className="mr-1 h-3.5 w-3.5" />
+                Mark all viewed
+              </Button>
+            </div>
+          ) : null}
+          <ul className="max-h-[40vh] space-y-3 overflow-y-auto pr-1">
+            {tickets.map((t) => {
+              const unread = isTicketUnread(t);
+              return (
+                <li
+                  key={t.id}
+                  className={`rounded-lg border p-3 text-sm ${
+                    unread
+                      ? "border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20"
+                      : "border-zinc-200 dark:border-zinc-700"
+                  }`}
+                >
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px]">
+                        {t.status}
+                      </Badge>
+                      {unread ? (
+                        <Badge className="bg-amber-500 text-[10px] text-white hover:bg-amber-500">
+                          New reply
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatWhen(t.updatedAt ?? t.createdAt)}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap">{t.message}</p>
+                  {t.adminReply ? (
+                    <div className="mt-2 rounded-md bg-violet-50 px-2 py-1.5 text-xs dark:bg-violet-950/40">
+                      <span className="font-medium text-violet-900 dark:text-violet-200">
+                        Support:{" "}
+                      </span>
+                      <span className="whitespace-pre-wrap text-violet-950 dark:text-violet-100">
+                        {t.adminReply}
+                      </span>
+                    </div>
+                  ) : t.status === "open" ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Waiting for a reply…
+                    </p>
+                  ) : null}
+                  {unread ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="mt-2 h-7 px-2 text-xs"
+                      onClick={() => markTicketSeen(t.id)}
+                    >
+                      <Check className="mr-1 h-3.5 w-3.5" />
+                      Mark as viewed
+                    </Button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       <div className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">

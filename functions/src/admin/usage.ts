@@ -2,6 +2,7 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { ensureFirebaseAdmin } from "../firebase-admin-app";
 import { getLaunchPlanConfig } from "../plan/config";
+import { TRIAL_MS } from "../plan/trial";
 import { normalizePlanId, getPlanLimitsForSync } from "./plan-limits";
 
 export type UsageField = "aiCalls" | "cloudSttChunks" | "meetings";
@@ -33,6 +34,8 @@ export async function touchUserProfile(
   };
   if (!existing.exists) {
     payload.signedUpAt = FieldValue.serverTimestamp();
+    payload.plan = "free";
+    payload.trialEndsAt = Date.now() + TRIAL_MS;
   }
   await ref.set(payload, { merge: true });
 }

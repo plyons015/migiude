@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useMeetings } from "@/hooks/use-meetings";
 import { useTodos } from "@/hooks/use-todos";
+import { removeMeeting } from "@/lib/data/meetings-store";
 import {
   collectAllTags,
   collectAllTopics,
@@ -21,10 +22,10 @@ import {
   meetingHasOpenFollowUps,
 } from "@/lib/library/queries";
 import { format } from "date-fns";
-import { Calendar, Columns3, Filter, ListTodo } from "lucide-react";
+import { Calendar, Columns3, Filter, ListTodo, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 type LibraryViewProps = {
   userId: string;
@@ -41,6 +42,23 @@ export function LibraryView({ userId }: LibraryViewProps) {
 
   const { meetings } = useMeetings(userId);
   const { todos } = useTodos(userId);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function deleteMeetingById(meetingId: string, title: string) {
+    if (
+      !window.confirm(
+        `Delete "${title}"? This removes the meeting from your library and cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingId(meetingId);
+    try {
+      await removeMeeting(userId, meetingId);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const allTags = useMemo(() => collectAllTags(meetings), [meetings]);
   const allTopics = useMemo(() => collectAllTopics(meetings), [meetings]);
@@ -223,39 +241,52 @@ export function LibraryView({ userId }: LibraryViewProps) {
               </p>
             ) : (
               filtered.map((m) => (
-                <Link
+                <div
                   key={m.id}
-                  href={`/meetings/?id=${m.id}`}
-                  className="flex items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/50"
+                  className="flex items-stretch rounded-lg border border-border transition-colors hover:bg-accent/50"
                 >
-                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{m.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(m.startedAt, "MMM d, yyyy HH:mm")}
-                      {m.aiSummary ? " · summarized" : ""}
-                      {meetingHasOpenFollowUps(m.id, todos)
-                        ? " · open follow-ups"
-                        : ""}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {m.tags?.map((t) => (
-                        <Badge key={t} variant="outline" className="text-[10px]">
-                          {t}
-                        </Badge>
-                      ))}
-                      {m.topics?.slice(0, 3).map((t) => (
-                        <Badge
-                          key={t.id}
-                          variant="secondary"
-                          className="text-[10px]"
-                        >
-                          {t.title}
-                        </Badge>
-                      ))}
+                  <Link
+                    href={`/meetings/?id=${m.id}`}
+                    className="flex min-w-0 flex-1 items-start gap-3 p-3"
+                  >
+                    <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{m.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(m.startedAt, "MMM d, yyyy HH:mm")}
+                        {m.aiSummary ? " · summarized" : ""}
+                        {meetingHasOpenFollowUps(m.id, todos)
+                          ? " · open follow-ups"
+                          : ""}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {m.tags?.map((t) => (
+                          <Badge key={t} variant="outline" className="text-[10px]">
+                            {t}
+                          </Badge>
+                        ))}
+                        {m.topics?.slice(0, 3).map((t) => (
+                          <Badge
+                            key={t.id}
+                            variant="secondary"
+                            className="text-[10px]"
+                          >
+                            {t.title}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                  <button
+                    type="button"
+                    disabled={deletingId === m.id}
+                    aria-label={`Delete ${m.title}`}
+                    onClick={() => void deleteMeetingById(m.id, m.title)}
+                    className="shrink-0 self-center px-3 text-muted-foreground hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               ))
             )}
           </div>

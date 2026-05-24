@@ -2,6 +2,7 @@ import {
   DEFAULT_LAUNCH_PLAN_CONFIG,
   resolvePlanLimits,
 } from "@/lib/plan/config-schema";
+import { TRIAL_DAYS, TRIAL_LIMITS } from "@/lib/plan/trial";
 import type { PlanAndUsageResponse } from "@/lib/plan/types";
 
 function utcMonthKey(): string {
@@ -15,6 +16,7 @@ export function offlinePlanAndUsageFallback(): PlanAndUsageResponse {
   const plan = "free";
   const limits = resolvePlanLimits(config, plan);
   const display = config.tiers[plan].display;
+  const endsAt = Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000;
   return {
     plan,
     config,
@@ -26,5 +28,14 @@ export function offlinePlanAndUsageFallback(): PlanAndUsageResponse {
     },
     limits,
     display: { id: plan, ...display },
+    trial: {
+      active: true,
+      expired: false,
+      requiresUpgrade: false,
+      endsAt,
+      daysRemaining: TRIAL_DAYS,
+      limits: TRIAL_LIMITS,
+      usage: { aiCalls: 0, meetingMinutes: 0, onDeviceMinutes: 0 },
+    },
   };
 }

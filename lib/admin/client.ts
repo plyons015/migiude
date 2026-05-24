@@ -94,6 +94,7 @@ export async function adminUpdateUser(input: {
   plan?: "free" | "pro" | "power";
   suspended?: boolean;
   trialEndsAt?: number | null;
+  planOverride?: boolean;
   adminNotes?: string;
 }): Promise<void> {
   const fn = httpsCallable<typeof input, { ok: boolean }>(

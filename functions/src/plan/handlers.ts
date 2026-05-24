@@ -20,6 +20,15 @@ import {
   type LaunchPlanConfig,
   type PlanId,
 } from "./defaults";
+import {
+  assertTrialUsageRoom,
+  buildTrialStatus,
+  ensureNewUserTrial,
+  incrementTrialUsage,
+  readTrialUsage,
+  shouldApplyTrialLimits,
+  trialExpiredRequiresUpgrade,
+} from "./trial";
 
 const callOptions = { invoker: "public" as const };
 const adminOptions = { invoker: "public" as const, secrets: adminSecrets };
@@ -102,13 +111,17 @@ export const getPlanAndUsage = onCall(callOptions, async (request) => {
   const uid = request.auth.uid;
   const config = await ensureLaunchPlanConfigSeeded();
 
-  const profile = await getFirestore().doc(`userProfiles/${uid}`).get();
-  const plan = normalizePlanId(profile.data()?.plan as string | undefined);
+  const profile = await ensureNewUserTrial(
+    uid,
+    request.auth.token.email ?? null,
+  );
+  const plan = normalizePlanId(profile.plan ?? undefined);
   const limits = resolvePlanLimits(config, plan);
   const display = config.tiers[plan].display;
 
   const monthUsage = await readMonthUsage(uid);
   const cloudSttChunksToday = await readTodayCloudSttChunks(uid);
+  const trialUsage = await readTrialUsage(uid);
 
   return {
     plan,
@@ -121,6 +134,9 @@ export const getPlanAndUsage = onCall(callOptions, async (request) => {
     },
     limits,
     display: { id: plan, ...display },
+    trial: buildTrialStatus(profile, trialUsage),
+    planOverride: profile.planOverride === true,
+    requiresUpgrade: trialExpiredRequiresUpgrade(profile),
   };
 });
 
@@ -194,4 +210,49 @@ export const adminResetPlanConfig = onCall(adminOptions, async (request) => {
     action: "plan.config_reset",
   });
   return { ok: true, config: DEFAULT_LAUNCH_PLAN_CONFIG };
+});
+
+const recordTrialUsageSchema = z.object({
+  meetingMinutes: z.number().min(0).max(480).optional(),
+  onDeviceMinutes: z.number().min(0).max(480).optional(),
+});
+
+/** Report meeting or on-device minutes during the 7-day trial. */
+export const recordTrialUsage = onCall(callOptions, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to record usage.");
+  }
+  const parsed = recordTrialUsageSchema.safeParse(request.data ?? {});
+  if (!parsed.success) {
+    throw new HttpsError("invalid-argument", formatZodError(parsed.error));
+  }
+  const { meetingMinutes, onDeviceMinutes } = parsed.data;
+  if (meetingMinutes == null && onDeviceMinutes == null) {
+    throw new HttpsError("invalid-argument", "No usage to record.");
+  }
+
+  const uid = request.auth.uid;
+  const profile = await ensureNewUserTrial(
+    uid,
+    request.auth.token.email ?? null,
+  );
+  if (!shouldApplyTrialLimits(profile)) {
+    const usage = await readTrialUsage(uid);
+    return { ok: true, trial: buildTrialStatus(profile, usage) };
+  }
+
+  await assertTrialUsageRoom(uid, {
+    meetingMinutes: meetingMinutes ?? 0,
+    onDeviceMinutes: onDeviceMinutes ?? 0,
+  });
+  await incrementTrialUsage(uid, {
+    meetingMinutes: meetingMinutes ?? 0,
+    onDeviceMinutes: onDeviceMinutes ?? 0,
+  });
+
+  const usage = await readTrialUsage(uid);
+  return {
+    ok: true,
+    trial: buildTrialStatus(profile, usage),
+  };
 });

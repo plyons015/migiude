@@ -18,6 +18,7 @@ export type AdminAuditAction =
   | "user.suspend"
   | "user.unsuspend"
   | "user.plan_change"
+  | "user.plan_override_change"
   | "user.trial_change"
   | "user.notes_update"
   | "user.role_change"

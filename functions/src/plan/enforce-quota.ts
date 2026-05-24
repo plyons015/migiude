@@ -9,10 +9,22 @@ import {
   type PlanId,
 } from "../admin/plan-limits";
 import { getLaunchPlanConfig } from "./config";
+import {
+  assertTrialAiAllowed,
+  assertTrialUpgradeRequired,
+  hasPaidEntitlement,
+  readUserProfile,
+  shouldApplyTrialLimits,
+  trialExpiredRequiresUpgrade,
+  trialUpgradeMessage,
+} from "./trial";
 
 async function planForUid(uid: string): Promise<PlanId> {
-  const snap = await getFirestore().doc(`userProfiles/${uid}`).get();
-  return normalizePlanId(snap.data()?.plan as string | undefined);
+  const profile = await readUserProfile(uid);
+  if (hasPaidEntitlement(profile)) {
+    return normalizePlanId(profile.plan ?? undefined);
+  }
+  return "free";
 }
 
 async function readTodayCloudSttChunks(uid: string): Promise<number> {
@@ -22,7 +34,15 @@ async function readTodayCloudSttChunks(uid: string): Promise<number> {
 }
 
 export async function assertCanUseAi(uid: string): Promise<void> {
-  const plan = await planForUid(uid);
+  const profile = await readUserProfile(uid);
+  assertTrialUpgradeRequired(profile);
+
+  if (shouldApplyTrialLimits(profile)) {
+    await assertTrialAiAllowed(uid);
+    return;
+  }
+
+  const plan = normalizePlanId(profile.plan ?? undefined);
   const [limits, config] = await Promise.all([
     getPlanLimitsFor(plan),
     getLaunchPlanConfig(),
@@ -39,6 +59,11 @@ export async function assertCanUseAi(uid: string): Promise<void> {
 }
 
 export async function assertCanUseCloudStt(uid: string): Promise<void> {
+  const profile = await readUserProfile(uid);
+  if (trialExpiredRequiresUpgrade(profile)) {
+    throw new HttpsError("resource-exhausted", trialUpgradeMessage());
+  }
+
   const plan = await planForUid(uid);
   const [limits, config] = await Promise.all([
     getPlanLimitsFor(plan),

@@ -29,6 +29,8 @@ type PlanAndUsageContextValue = {
   usage: PlanAndUsageResponse["usage"] | null;
   limits: PlanAndUsageResponse["limits"] | null;
   display: PlanAndUsageResponse["display"] | null;
+  trial: PlanAndUsageResponse["trial"] | null;
+  requiresUpgrade: boolean;
 };
 
 const PlanAndUsageContext = createContext<PlanAndUsageContextValue | null>(
@@ -159,6 +161,8 @@ export function PlanAndUsageProvider({ children }: { children: ReactNode }) {
       usage: data?.usage ?? null,
       limits: data?.limits ?? null,
       display: data?.display ?? null,
+      trial: data?.trial ?? null,
+      requiresUpgrade: data?.requiresUpgrade ?? false,
     }),
     [data, loading, authLoading, error, offline, refresh],
   );

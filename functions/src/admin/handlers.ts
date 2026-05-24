@@ -21,6 +21,11 @@ import {
   getPlanLimitsForSync,
 } from "./plan-limits";
 import { formatZodError, optionalString } from "./zod-helpers";
+import {
+  buildTrialStatus,
+  readTrialUsage,
+  TRIAL_LIMITS,
+} from "../plan/trial";
 
 const adminCallOptions = {
   invoker: "public" as const,
@@ -262,6 +267,7 @@ const updateUserSchema = z.object({
   plan: z.enum(["free", "pro", "power", "business"]).optional(),
   suspended: z.boolean().optional(),
   trialEndsAt: z.number().nullable().optional(),
+  planOverride: z.boolean().optional(),
   adminNotes: optionalString(),
 });
 
@@ -282,7 +288,7 @@ export const adminUpdateUser = onCall(adminCallOptions, async (request) => {
     if (!parsed.success) {
       throw new HttpsError("invalid-argument", parsed.error.message);
     }
-    const { uid, role, plan, suspended, trialEndsAt } = parsed.data;
+    const { uid, role, plan, suspended, trialEndsAt, planOverride } = parsed.data;
     const auth = getAuth();
     const db = getFirestore();
 
@@ -317,6 +323,7 @@ export const adminUpdateUser = onCall(adminCallOptions, async (request) => {
     if (plan !== undefined) {
       profilePatch.plan = plan === "business" ? "power" : plan;
     }
+    if (planOverride !== undefined) profilePatch.planOverride = planOverride;
     if (suspended !== undefined) profilePatch.suspended = suspended;
     if (trialEndsAt !== undefined) profilePatch.trialEndsAt = trialEndsAt;
     if (parsed.data.adminNotes !== undefined) {
@@ -358,6 +365,15 @@ export const adminUpdateUser = onCall(adminCallOptions, async (request) => {
         action: "user.trial_change",
         targetUid: uid,
         snapshot: { trialEndsAt },
+      });
+    }
+    if (planOverride !== undefined) {
+      await writeAdminAuditLog({
+        actorUid: actor.uid,
+        actorEmail: actor.email,
+        action: "user.plan_override_change",
+        targetUid: uid,
+        snapshot: { planOverride },
       });
     }
     if (parsed.data.adminNotes !== undefined) {
@@ -431,6 +447,16 @@ export const adminGetUser = onCall(adminCallOptions, async (request) => {
   const monthUsage = await readMonthUsageWithFallback(uid);
   const planConfig = await getLaunchPlanConfig();
   const limits = getPlanLimitsForSync(plan, planConfig);
+  const trialUsage = await readTrialUsage(uid);
+  const trial = buildTrialStatus(
+    {
+      plan,
+      trialEndsAt: (profile.trialEndsAt as number | undefined) ?? null,
+      planOverride: (profile.planOverride as boolean | undefined) ?? false,
+      subscriptionStatus: (profile.subscriptionStatus as string | undefined) ?? null,
+    },
+    trialUsage,
+  );
 
   return {
     uid,
@@ -441,10 +467,13 @@ export const adminGetUser = onCall(adminCallOptions, async (request) => {
     emailVerified: authUser.emailVerified,
     role: (profile.role as string | undefined) ?? "member",
     plan,
+    planOverride: (profile.planOverride as boolean | undefined) ?? false,
     suspended: Boolean(profile.suspended) || authUser.disabled,
     platform: (profile.platform as string | undefined) ?? null,
     adminNotes: (profile.adminNotes as string | undefined) ?? "",
     trialEndsAt: (profile.trialEndsAt as number | undefined) ?? null,
+    trial,
+    trialLimits: TRIAL_LIMITS,
     usageByDay,
     usageMonth: {
       month: currentMonthKey(),

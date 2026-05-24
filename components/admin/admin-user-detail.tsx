@@ -38,6 +38,7 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [planOverride, setPlanOverride] = useState(false);
   const [deleteEmailConfirm, setDeleteEmailConfirm] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteCode, setDeleteCode] = useState<
@@ -59,6 +60,7 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
       const data = await adminGetUser(uid);
       setDetail(data);
       setNotes(data.adminNotes);
+      setPlanOverride(data.planOverride);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load user.");
     } finally {
@@ -169,6 +171,11 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
           ) : (
             <Badge variant="outline">Active</Badge>
           )}
+          {detail.planOverride ? (
+            <Badge className="border-violet-300 bg-violet-50 text-violet-900 dark:border-violet-800 dark:bg-violet-950/50 dark:text-violet-200">
+              Plan override
+            </Badge>
+          ) : null}
           {detail.usageMonth.overQuota ? (
             <Badge className="border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
               Over free quota
@@ -203,6 +210,16 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
             Trial ends:{" "}
             <span className="text-foreground">{trialLabel}</span>
           </div>
+          <div className="sm:col-span-2">
+            Trial usage:{" "}
+            <span className="text-foreground">
+              {detail.trial.usage.meetingMinutes}/
+              {detail.trial.limits.meetingMinutes}m meetings ·{" "}
+              {detail.trial.usage.aiCalls}/{detail.trial.limits.aiCalls} AI ·{" "}
+              {detail.trial.usage.onDeviceMinutes}/
+              {detail.trial.limits.onDeviceMinutes}m on-device
+            </span>
+          </div>
         </dl>
 
         {detail.usageMonth ? (
@@ -217,6 +234,51 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
             }
           />
         ) : null}
+
+        <div className="space-y-3 rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">Plan override</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={detail.plan}
+              disabled={saving}
+              onValueChange={(plan) =>
+                setDetail((d) => (d ? { ...d, plan } : d))
+              }
+            >
+              <SelectTrigger className="h-8 w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="pro">Pro</SelectItem>
+                <SelectItem value="power">Power</SelectItem>
+              </SelectContent>
+            </Select>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={planOverride}
+                onChange={(e) => setPlanOverride(e.target.checked)}
+                disabled={saving}
+              />
+              Keep plan without Stripe subscription
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              disabled={saving}
+              onClick={() =>
+                void adminUpdateUser({
+                  uid,
+                  plan: detail.plan as "free" | "pro" | "power",
+                  planOverride,
+                }).then(() => load().then(onUpdated))
+              }
+            >
+              Apply plan
+            </Button>
+          </div>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <Button
@@ -237,25 +299,6 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
           >
             Clear trial
           </Button>
-          <Select
-            value={detail.plan}
-            disabled={saving}
-            onValueChange={(plan) =>
-              void adminUpdateUser({
-                uid,
-                plan: plan as "free" | "pro" | "power",
-              }).then(() => load().then(onUpdated))
-            }
-          >
-            <SelectTrigger className="h-8 w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="free">Free</SelectItem>
-              <SelectItem value="pro">Pro</SelectItem>
-              <SelectItem value="power">Power</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <div>

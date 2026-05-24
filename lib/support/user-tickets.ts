@@ -51,6 +51,36 @@ export function subscribeUserSupportTickets(
 
 const SEEN_KEY = "migiude-help-seen-ticket-ids";
 
+let seenRevision = 0;
+const seenListeners = new Set<() => void>();
+
+function notifySeenChanged(): void {
+  seenRevision += 1;
+  for (const listener of seenListeners) listener();
+}
+
+export function subscribeSupportTicketsSeen(
+  onStoreChange: () => void,
+): () => void {
+  seenListeners.add(onStoreChange);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === SEEN_KEY) notifySeenChanged();
+  };
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", onStorage);
+  }
+  return () => {
+    seenListeners.delete(onStoreChange);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", onStorage);
+    }
+  };
+}
+
+export function getSupportTicketsSeenRevision(): number {
+  return seenRevision;
+}
+
 export function getSeenSupportTicketIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
@@ -66,16 +96,27 @@ export function getSeenSupportTicketIds(): Set<string> {
 export function markSupportTicketsSeen(ids: string[]): void {
   if (typeof window === "undefined" || ids.length === 0) return;
   const seen = getSeenSupportTicketIds();
-  for (const id of ids) seen.add(id);
+  let changed = false;
+  for (const id of ids) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      changed = true;
+    }
+  }
+  if (!changed) return;
   localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+  notifySeenChanged();
+}
+
+export function markSupportTicketSeen(id: string): void {
+  markSupportTicketsSeen([id]);
+}
+
+export function isSupportTicketUnread(ticket: UserSupportTicket): boolean {
+  if (ticket.status !== "resolved" || !ticket.adminReply?.trim()) return false;
+  return !getSeenSupportTicketIds().has(ticket.id);
 }
 
 export function countUnreadSupportReplies(tickets: UserSupportTicket[]): number {
-  const seen = getSeenSupportTicketIds();
-  return tickets.filter(
-    (t) =>
-      t.status === "resolved" &&
-      Boolean(t.adminReply?.trim()) &&
-      !seen.has(t.id),
-  ).length;
+  return tickets.filter(isSupportTicketUnread).length;
 }

@@ -41,7 +41,9 @@ import {
   adminGetPlanConfig,
   adminUpdatePlanConfig,
   adminResetPlanConfig,
+  recordTrialUsage,
 } from "./plan/handlers";
+import { recordTrialAiUsage } from "./plan/trial";
 import { submitSupportTicket } from "./support";
 import {
   createBillingPortalSession,
@@ -115,6 +117,7 @@ export const aiProcess = onCall(
         email: request.auth.token.email ?? null,
       }).catch(() => undefined);
       void recordUsage(uid, "aiCalls").catch(() => undefined);
+      void recordTrialAiUsage(uid).catch(() => undefined);
 
       const result = await runAiByProvider(provider, text, task);
       return { result, provider, task };
@@ -249,4 +252,5 @@ export {
   adminGetPlanConfig,
   adminUpdatePlanConfig,
   adminResetPlanConfig,
+  recordTrialUsage,
 };

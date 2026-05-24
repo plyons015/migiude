@@ -17,6 +17,9 @@ service cloud.firestore {
     match /usageMonthly/{month}/users/{uid} {
       allow read, write: if false;
     }
+    match /usageTrial/{uid} {
+      allow read, write: if false;
+    }
     match /billingEvents/{eventId} {
       allow read, write: if false;
     }

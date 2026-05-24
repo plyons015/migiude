@@ -112,18 +112,31 @@ export function NotesView({ userId }: NotesViewProps) {
     }
   }
 
-  async function handleDelete() {
-    if (!selected) return;
+  async function deleteNoteById(noteId: string) {
+    if (
+      !window.confirm(
+        "Delete this note? This cannot be undone.",
+      )
+    ) {
+      return;
+    }
     setBusy(true);
     try {
-      await removeNote(userId, selected.id);
-      selectNote(null);
-      const url = new URL(window.location.href);
-      url.searchParams.delete("id");
-      window.history.replaceState({}, "", url.toString());
+      await removeNote(userId, noteId);
+      if (selectedId === noteId) {
+        selectNote(null);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("id");
+        window.history.replaceState({}, "", url.toString());
+      }
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleDelete() {
+    if (!selected) return;
+    await deleteNoteById(selected.id);
   }
 
   if (tab === "todos") {
@@ -184,13 +197,16 @@ export function NotesView({ userId }: NotesViewProps) {
         ) : null}
         <ul className="max-h-48 overflow-y-auto lg:max-h-none">
           {filteredNotes.map((note) => (
-            <li key={note.id}>
+            <li
+              key={note.id}
+              className={`flex items-stretch ${
+                selectedId === note.id ? "bg-zinc-100 dark:bg-zinc-800" : ""
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => selectNote(note)}
-                className={`w-full px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900/50 ${
-                  selectedId === note.id ? "bg-zinc-100 dark:bg-zinc-800" : ""
-                }`}
+                className="min-w-0 flex-1 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
               >
                 <p className="font-medium truncate">{note.title}</p>
                 {note.tags?.length ? (
@@ -205,6 +221,15 @@ export function NotesView({ userId }: NotesViewProps) {
                 <p className="mt-1 text-xs text-zinc-500">
                   {format(note.updatedAt, "MMM d")}
                 </p>
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                aria-label={`Delete ${note.title}`}
+                onClick={() => void deleteNoteById(note.id)}
+                className="shrink-0 px-3 text-zinc-400 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
               </button>
             </li>
           ))}
