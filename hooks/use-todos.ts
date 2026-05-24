@@ -4,6 +4,8 @@ import { subscribeTodos, todoStatusOf } from "@/lib/data/todos-store";
 import type { TodoRecord } from "@/lib/data/types";
 import { useEffect, useMemo, useState } from "react";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export function useTodos(userId: string | null) {
   const [todos, setTodos] = useState<TodoRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -25,12 +27,11 @@ export function useTodos(userId: string | null) {
     [todos],
   );
 
+  const [dueSoonCutoff] = useState(() => Date.now() + DAY_MS);
+
   const dueSoon = useMemo(
-    () =>
-      openTodos.filter(
-        (t) => t.dueAt && t.dueAt <= Date.now() + 24 * 60 * 60 * 1000,
-      ),
-    [openTodos],
+    () => openTodos.filter((t) => t.dueAt && t.dueAt <= dueSoonCutoff),
+    [openTodos, dueSoonCutoff],
   );
 
   return { todos, openTodos, dueSoon, error };

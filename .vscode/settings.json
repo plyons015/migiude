@@ -2,7 +2,6 @@
   "npm.autoDetect": "off",
   "java.import.gradle.enabled": true,
   "java.import.gradle.wrapper.enabled": true,
-  "java.import.gradle.version": "8.11.1",
   "java.configuration.updateBuildConfiguration": "automatic",
   "java.project.importOnFirstTimeStartup": "automatic",
   "gradle.nestedProjects": true

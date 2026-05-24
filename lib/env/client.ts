@@ -34,6 +34,6 @@ export function isFirebaseConfigured(): boolean {
   return getFirebaseClientEnv() !== null;
 }
 
-export function useFirebaseEmulators(): boolean {
+export function shouldUseFirebaseEmulators(): boolean {
   return process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATORS === "true";
 }

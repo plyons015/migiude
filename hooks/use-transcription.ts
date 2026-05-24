@@ -16,7 +16,7 @@ import {
 } from "@/lib/capacitor/recording-foreground";
 import { isAndroid } from "@/lib/capacitor/platform";
 import type { CloudSttUiPhase } from "@/hooks/use-cloud-transcription";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export type StartListeningOptions = {
   context?: TranscriptionContext;
@@ -44,7 +44,8 @@ export function useTranscription(
   );
 
   const idleMode = resolveMode(idleContext);
-  const sessionModeRef = useRef<TranscriptionMode | null>(null);
+  const [activeSessionMode, setActiveSessionMode] =
+    useState<TranscriptionMode | null>(null);
   const [captureWarning, setCaptureWarning] = useState<string | null>(null);
 
   const browser = useSpeechRecognition(langOverride);
@@ -55,7 +56,7 @@ export function useTranscription(
   const cloudActive = cloud.isListening || cloud.state !== "idle";
 
   const sessionMode =
-    sessionModeRef.current ??
+    activeSessionMode ??
     (cloudActive ? "cloud" : browserActive ? "browser" : idleMode);
 
   const active = sessionMode === "cloud" ? cloud : browser;
@@ -77,7 +78,7 @@ export function useTranscription(
     async (options?: StartListeningOptions) => {
       const context = options?.context ?? idleContext;
       const mode = options?.mode ?? resolveMode(context);
-      sessionModeRef.current = mode;
+      setActiveSessionMode(mode);
       setCaptureWarning(null);
 
       if (isAndroid()) {
@@ -106,13 +107,12 @@ export function useTranscription(
   );
 
   const stopListening = useCallback(() => {
-    const mode = sessionModeRef.current ?? sessionMode;
-    if (mode === "cloud") {
+    if (sessionMode === "cloud") {
       cloud.stopListening();
     } else {
       browser.stopListening();
     }
-    sessionModeRef.current = null;
+    setActiveSessionMode(null);
     if (isAndroid()) {
       void endExclusiveCapture();
     }

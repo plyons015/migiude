@@ -59,7 +59,7 @@ export function AppLoadingScreen({ onComplete }: Props) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black transition-opacity duration-[400ms] ease-out ${
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black transition-opacity duration-400 ease-out ${
         fading ? "pointer-events-none opacity-0" : "opacity-100"
       }`}
       role="status"

@@ -23,7 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 import { useCallback, useId, useState } from "react";
 
 const inputClass =

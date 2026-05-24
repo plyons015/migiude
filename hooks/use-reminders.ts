@@ -8,7 +8,10 @@ import { useEffect, useRef } from "react";
 export function useReminders(userId: string | null, todos: TodoRecord[]) {
   const { notifications } = useAppSettings();
   const todosRef = useRef(todos);
-  todosRef.current = todos;
+
+  useEffect(() => {
+    todosRef.current = todos;
+  }, [todos]);
 
   useEffect(() => {
     if (!userId || !notifications) return;

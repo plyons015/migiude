@@ -6,7 +6,7 @@ import { signInAnonymousUser, signOutUser } from "@/lib/firebase/auth";
 import { getCapacitorPlatform, isNativePlatform } from "@/lib/capacitor/platform";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
-import { useFirebaseEmulators } from "@/lib/env/client";
+import { shouldUseFirebaseEmulators } from "@/lib/env/client";
 import { CheckCircle2, Circle, Loader2, Mic, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -45,7 +45,7 @@ export function SetupDashboard({ firebaseConfigured }: SetupDashboardProps) {
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const platform = getCapacitorPlatform();
   const native = isNativePlatform();
-  const emulators = useFirebaseEmulators();
+  const emulators = shouldUseFirebaseEmulators();
 
   useEffect(() => {
     const auth = getFirebaseAuth();

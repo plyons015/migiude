@@ -86,15 +86,12 @@ type IpodDisplayProps = {
 
 export function IpodDisplay({ greeting, subtitle, holdHint }: IpodDisplayProps) {
   const { plan, data, loading } = usePlanAndUsage();
-  const [nudgeDismissed, setNudgeDismissed] = useState(true);
-  const [adDismissed, setAdDismissed] = useState(true);
+  const [nudgeDismissed, setNudgeDismissed] = useState(() =>
+    isUpgradeNudgeDismissed(),
+  );
+  const [adDismissed, setAdDismissed] = useState(() => isAdDismissed());
   const [adVisible, setAdVisible] = useState(false);
   const [benefitIndex, setBenefitIndex] = useState(0);
-
-  useEffect(() => {
-    setNudgeDismissed(isUpgradeNudgeDismissed());
-    setAdDismissed(isAdDismissed());
-  }, []);
 
   const adsEnabled =
     plan === "free" &&
@@ -202,7 +199,7 @@ export function IpodDisplay({ greeting, subtitle, holdHint }: IpodDisplayProps) 
           {headerLabel}
         </p>
       </div>
-      <div className="relative min-h-[7.5rem] px-4 py-4">
+      <div className="relative min-h-30 px-4 py-4">
         {(content.dismissible || content.id === "ad") && !holdHint ? (
           <button
             type="button"

@@ -26,7 +26,7 @@ import {
 import type { TranscriptionMode } from "@/lib/speech/types";
 import type { TranscriptChunk } from "@/lib/speech/types";
 import { format } from "date-fns";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type SavedCapture = {
   kind: "note" | "meeting";
@@ -66,7 +66,6 @@ export function useListenSession(userId: string) {
     startListening,
     stopListening,
     clearTranscript,
-    restoreTranscript,
     transcriptionMode,
     meetingTranscriptionMode,
     quickTranscriptionMode,
@@ -212,7 +211,7 @@ export function useListenSession(userId: string) {
         flashLineMsg(e instanceof Error ? e.message : "Could not add todo");
       }
     },
-    [userId, activeMeeting?.id, flashLineMsg],
+    [userId, activeMeeting, flashLineMsg],
   );
 
   const highlightAndTodoFromChunk = useCallback(

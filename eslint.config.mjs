@@ -12,7 +12,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Capacitor / Android build output (not source)
+    "android/**",
+    "functions/lib/**",
   ]),
+  {
+    rules: {
+      // Common data-fetch / subscription patterns; revisit during React Compiler migration.
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -20,7 +20,6 @@ export function connectFirebaseEmulators(
     process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_HOST ??
     "127.0.0.1:5001";
 
-  const [authHostname, authPort] = authHost.split(":");
   const [fsHostname, fsPort] = firestoreHost.split(":");
   const [fnHostname, fnPort] = functionsHost.split(":");
 

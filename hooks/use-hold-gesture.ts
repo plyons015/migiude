@@ -51,28 +51,32 @@ export function useHoldGesture({
     setState({ phase: "idle", holdProgress: 0, cloudHint: false });
   }, [clearRaf]);
 
-  const tick = useCallback(() => {
-    const downAt = downAtRef.current;
-    if (downAt == null) return;
+  const scheduleTick = useCallback(() => {
+    const loop = () => {
+      const downAt = downAtRef.current;
+      if (downAt == null) return;
 
-    const elapsed = Date.now() - downAt;
-    const progress = Math.min(1, elapsed / HOLD_CLOUD_MS);
-    const cloudHint = elapsed >= HOLD_PURPLE_MS;
+      const elapsed = Date.now() - downAt;
+      const progress = Math.min(1, elapsed / HOLD_CLOUD_MS);
+      const cloudHint = elapsed >= HOLD_PURPLE_MS;
 
-    setState({
-      phase: progress >= 1 ? "cloud-ready" : "holding",
-      holdProgress: progress,
-      cloudHint,
-    });
+      setState({
+        phase: progress >= 1 ? "cloud-ready" : "holding",
+        holdProgress: progress,
+        cloudHint,
+      });
 
-    if (elapsed >= HOLD_CLOUD_MS && !firedCloudRef.current) {
-      firedCloudRef.current = true;
-      onCloudHoldComplete();
-      reset();
-      return;
-    }
+      if (elapsed >= HOLD_CLOUD_MS && !firedCloudRef.current) {
+        firedCloudRef.current = true;
+        onCloudHoldComplete();
+        reset();
+        return;
+      }
 
-    rafRef.current = requestAnimationFrame(tick);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
   }, [onCloudHoldComplete, reset]);
 
   const onPointerDown = useCallback(
@@ -83,9 +87,9 @@ export function useHoldGesture({
       downAtRef.current = Date.now();
       firedCloudRef.current = false;
       setState({ phase: "holding", holdProgress: 0, cloudHint: false });
-      rafRef.current = requestAnimationFrame(tick);
+      scheduleTick();
     },
-    [disabled, tick],
+    [disabled, scheduleTick],
   );
 
   const onPointerUp = useCallback(

@@ -34,7 +34,6 @@ import { getSeriesForTag } from "@/lib/library/queries";
 import { finalizeMeeting } from "@/lib/meetings/finalize-meeting";
 import {
   applyTemplateTitle,
-  buildTemplateMinutesScaffold,
 } from "@/lib/meetings/templates";
 import type { MeetingTemplate } from "@/lib/meetings/template-schema";
 import { resolveMeetingTemplate } from "@/lib/meetings/custom-templates-store";
@@ -62,7 +61,7 @@ import {
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function ListenMode() {
   const searchParams = useSearchParams();
@@ -155,14 +154,16 @@ export function ListenMode() {
   const transcriptText = fullTranscript;
   const hasTranscript = transcriptText.trim().length > 0;
 
-  const seriesHint = useMemo(() => {
-    if (!uid || meetings.length === 0) return null;
+  let seriesHint: { tag: string; count: number } | null = null;
+  if (uid && meetings.length > 0) {
     for (const tag of ["1:1", "client", "standup"]) {
       const s = getSeriesForTag(meetings, tag, todos);
-      if (s.openTodos.length > 0) return { tag, count: s.openTodos.length };
+      if (s.openTodos.length > 0) {
+        seriesHint = { tag, count: s.openTodos.length };
+        break;
+      }
     }
-    return null;
-  }, [uid, meetings, todos]);
+  }
 
   useEffect(() => {
     if (!hasTranscript && !highlights.length) return;

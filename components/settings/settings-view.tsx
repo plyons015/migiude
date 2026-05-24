@@ -25,7 +25,6 @@ import {
   type SpeechLanguage,
   type ThemePreference,
 } from "@/lib/settings/preferences";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,

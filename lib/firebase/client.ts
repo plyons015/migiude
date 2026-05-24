@@ -2,7 +2,7 @@ import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
 import { Auth, getAuth } from "firebase/auth";
 import { Firestore, getFirestore } from "firebase/firestore";
 import { Functions, getFunctions } from "firebase/functions";
-import { useFirebaseEmulators } from "@/lib/env/client";
+import { shouldUseFirebaseEmulators } from "@/lib/env/client";
 import { getFirebaseOptions } from "@/lib/firebase/config";
 import { connectFirebaseEmulators } from "@/lib/firebase/emulators";
 
@@ -69,7 +69,7 @@ export function initFirebaseClient(): boolean {
     return false;
   }
 
-  if (useFirebaseEmulators()) {
+  if (shouldUseFirebaseEmulators()) {
     connectFirebaseEmulators(firebaseAuth, firestore, firebaseFunctions);
   }
 
