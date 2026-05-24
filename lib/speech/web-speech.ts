@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/branding/app-name";
 import type {
   SpeechListenState,
   SpeechRecognitionHandlers,
@@ -20,7 +21,7 @@ function createChunkId(): string {
 function formatSpeechError(code: string, message: string): string {
   switch (code) {
     case "not-allowed":
-      return "Microphone permission denied. Open Settings → Apps → Migiude → Permissions and allow Microphone.";
+      return `Microphone permission denied. Open Settings → Apps → ${APP_NAME} → Permissions and allow Microphone.`;
     case "service-not-allowed":
       return "Speech recognition is not allowed. Update Google app / Play services and try again.";
     case "network":

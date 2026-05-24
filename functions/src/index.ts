@@ -1,5 +1,8 @@
 import { defineSecret } from "firebase-functions/params";
+import { ensureFirebaseAdmin } from "./firebase-admin-app";
 import * as logger from "firebase-functions/logger";
+
+ensureFirebaseAdmin();
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { z } from "zod";
@@ -18,8 +21,34 @@ import {
   adminUpdateUser,
   adminVerify,
 } from "./admin/handlers";
+import {
+  adminAddOrgMember,
+  adminCreateOrg,
+  adminDeleteUser,
+  adminGetAdminConfig,
+  adminGetRetention,
+  adminListAuditLog,
+  adminListClientErrors,
+  adminListOrgs,
+  adminRemoveOrgMember,
+  adminUpdateAdminConfig,
+  adminUpdateOrg,
+} from "./admin/extended-handlers";
 import { recordUsage, touchUserProfile } from "./admin/usage";
+import { assertCanUseAi, assertCanUseCloudStt } from "./plan/enforce-quota";
+import {
+  getPlanAndUsage,
+  adminGetPlanConfig,
+  adminUpdatePlanConfig,
+  adminResetPlanConfig,
+} from "./plan/handlers";
 import { submitSupportTicket } from "./support";
+import {
+  createBillingPortalSession,
+  createCheckoutSession,
+} from "./billing/handlers";
+import { stripeWebhook } from "./billing/webhook";
+import { reportClientError } from "./client-errors";
 
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
 
@@ -33,9 +62,8 @@ const requestSchema = z.object({
       "summarize",
       "extract_todos",
       "mind_map",
-      "suggest_tags",
+      "meeting_insights",
       "daily_recap",
-      "detect_commitments",
       "suggest_topics",
       "meeting_minutes",
       "generic",
@@ -82,6 +110,7 @@ export const aiProcess = onCall(
       assertProviderConfigured(provider);
 
       const uid = request.auth.uid;
+      await assertCanUseAi(uid);
       void touchUserProfile(uid, {
         email: request.auth.token.email ?? null,
       }).catch(() => undefined);
@@ -109,6 +138,7 @@ const transcribeRequestSchema = z.object({
   audioBase64: z.string().min(1),
   mimeType: z.string().default("audio/webm"),
   lang: z.string().default("en-US"),
+  audioDurationMs: z.number().int().min(0).max(120_000).optional(),
 });
 
 export type TranscribeAudioResponse = {
@@ -134,7 +164,7 @@ export const transcribeAudio = onCall(
       throw new HttpsError("invalid-argument", parsed.error.message);
     }
 
-    const { audioBase64, mimeType, lang } = parsed.data;
+    const { audioBase64, mimeType, lang, audioDurationMs } = parsed.data;
 
     if (audioBase64.length > 12_000_000) {
       throw new HttpsError(
@@ -151,23 +181,33 @@ export const transcribeAudio = onCall(
       uid: request.auth.uid,
       mimeType,
       lang,
+      audioDurationMs,
       bytesApprox: Math.round((audioBase64.length * 3) / 4),
     });
 
     try {
       const uid = request.auth.uid;
+      await assertCanUseCloudStt(uid);
       const bytesApprox = Math.round((audioBase64.length * 3) / 4);
       void touchUserProfile(uid, {
         email: request.auth.token.email ?? null,
       }).catch(() => undefined);
+      const sttSeconds =
+        audioDurationMs && audioDurationMs > 0
+          ? Math.max(1, Math.round(audioDurationMs / 1000))
+          : 0;
       void recordUsage(uid, "cloudSttChunks", 1, {
         cloudSttBytes: bytesApprox,
+        cloudSttSeconds: sttSeconds,
       }).catch(() => undefined);
 
+      const durationSec =
+        audioDurationMs && audioDurationMs > 0 ? audioDurationMs / 1000 : 0;
       const { segments } = await transcribeAudioWithGemini(
         audioBase64,
         mimeType,
         lang,
+        durationSec,
       );
       return { segments };
     } catch (error) {
@@ -189,5 +229,24 @@ export {
   adminGetUser,
   adminListSupportTickets,
   adminUpdateSupportTicket,
+  adminListAuditLog,
+  adminDeleteUser,
+  adminGetRetention,
+  adminGetAdminConfig,
+  adminUpdateAdminConfig,
+  adminListOrgs,
+  adminCreateOrg,
+  adminUpdateOrg,
+  adminAddOrgMember,
+  adminRemoveOrgMember,
+  adminListClientErrors,
   submitSupportTicket,
+  reportClientError,
+  createCheckoutSession,
+  createBillingPortalSession,
+  stripeWebhook,
+  getPlanAndUsage,
+  adminGetPlanConfig,
+  adminUpdatePlanConfig,
+  adminResetPlanConfig,
 };

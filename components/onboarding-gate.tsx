@@ -6,7 +6,7 @@ import {
 } from "@/lib/onboarding/preferences";
 import { isOnboardingRoute } from "@/lib/onboarding/routes";
 import { isNativePlatform } from "@/lib/capacitor/platform";
-import { useRouter } from "next/navigation";
+import { hardReplace } from "@/lib/navigation/hard-navigate";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
 function subscribe(onStoreChange: () => void) {
@@ -14,7 +14,6 @@ function subscribe(onStoreChange: () => void) {
 }
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const redirecting = useRef(false);
   const complete = useSyncExternalStore(
     subscribe,
@@ -27,8 +26,8 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     if (isOnboardingRoute()) return;
     if (redirecting.current) return;
     redirecting.current = true;
-    router.replace("/onboarding/");
-  }, [complete, router]);
+    hardReplace("/onboarding/");
+  }, [complete]);
 
   return children;
 }

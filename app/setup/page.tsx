@@ -1,8 +1,9 @@
 import { SetupDashboard } from "@/components/setup-dashboard";
+import { APP_NAME } from "@/lib/branding/app-name";
 import { isFirebaseConfigured } from "@/lib/env/client";
 
 export const metadata = {
-  title: "Setup — Migiude",
+  title: `Setup — ${APP_NAME}`,
 };
 
 export default function SetupPage() {

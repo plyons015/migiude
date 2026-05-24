@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/branding/app-name";
 import { isNativePlatform } from "@/lib/capacitor/platform";
 import {
   requestNativeNotificationPermission,
@@ -23,7 +24,7 @@ export function showTodoReminder(todo: TodoRecord): void {
   if (typeof window === "undefined" || Notification.permission !== "granted") {
     return;
   }
-  new Notification("Migiude reminder", {
+  new Notification(`${APP_NAME} reminder`, {
     body: todo.text,
     tag: todo.id,
   });

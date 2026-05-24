@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthScreen } from "@/components/auth/auth-screen";
+import { APP_NAME } from "@/lib/branding/app-name";
 import { adminVerify } from "@/lib/admin/client";
 import { isCloudFunctionsNetworkFailure } from "@/lib/firebase/functions-network-error";
 import { useAuthUser } from "@/hooks/use-auth-user";
@@ -75,7 +76,7 @@ export function AdminGate({ children }: AdminGateProps) {
       <div className="flex flex-1 flex-col">
         <div className="border-b border-violet-200 bg-violet-50 px-4 py-3 text-center dark:border-violet-900 dark:bg-violet-950/40">
           <Shield className="mx-auto mb-1 h-8 w-8 text-violet-700 dark:text-violet-300" />
-          <h1 className="text-lg font-semibold">Migiude Admin</h1>
+          <h1 className="text-lg font-semibold">{APP_NAME} Admin</h1>
           <p className="mt-1 text-sm text-violet-900/80 dark:text-violet-200/80">
             Operator sign-in — same email/password as the app, allowlisted only.
           </p>

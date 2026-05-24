@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { format, startOfDay } from "date-fns";
 import { Loader2, Sun } from "lucide-react";
+import { PlanQuotaMessage } from "@/components/plan/plan-quota-message";
 import { useCallback, useEffect, useState } from "react";
 
 const RECAP_CACHE_KEY = "migiude-daily-recap";
@@ -128,9 +129,7 @@ export function DailyRecapCard({ userId }: DailyRecapCardProps) {
             </button>
           </>
         )}
-        {error ? (
-          <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p>
-        ) : null}
+        {error ? <PlanQuotaMessage message={error} /> : null}
       </CardContent>
     </Card>
   );

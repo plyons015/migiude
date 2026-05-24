@@ -1,11 +1,17 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { ensureFirebaseAdmin } from "../firebase-admin-app";
+import { getLaunchPlanConfig } from "../plan/config";
+import { normalizePlanId, getPlanLimitsForSync } from "./plan-limits";
 
 export type UsageField = "aiCalls" | "cloudSttChunks" | "meetings";
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function monthKey(): string {
+  return new Date().toISOString().slice(0, 7);
 }
 
 export async function touchUserProfile(
@@ -18,21 +24,24 @@ export async function touchUserProfile(
 ): Promise<void> {
   ensureFirebaseAdmin();
   const db = getFirestore();
-  await db.doc(`userProfiles/${uid}`).set(
-    {
-      ...patch,
-      lastSeenAt: patch.lastSeenAt ?? Date.now(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
+  const ref = db.doc(`userProfiles/${uid}`);
+  const existing = await ref.get();
+  const payload: Record<string, unknown> = {
+    ...patch,
+    lastSeenAt: patch.lastSeenAt ?? Date.now(),
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  if (!existing.exists) {
+    payload.signedUpAt = FieldValue.serverTimestamp();
+  }
+  await ref.set(payload, { merge: true });
 }
 
 export async function recordUsage(
   uid: string,
   field: UsageField,
   amount = 1,
-  extra?: { cloudSttBytes?: number },
+  extra?: { cloudSttBytes?: number; cloudSttSeconds?: number },
 ): Promise<void> {
   const day = todayKey();
   const db = getFirestore();
@@ -44,13 +53,41 @@ export async function recordUsage(
   if (extra?.cloudSttBytes) {
     updates.cloudSttBytes = FieldValue.increment(extra.cloudSttBytes);
   }
+  if (extra?.cloudSttSeconds) {
+    updates.cloudSttSeconds = FieldValue.increment(extra.cloudSttSeconds);
+  }
   await usageRef.set(updates, { merge: true });
 
-  // Auto-flag heavy cloud STT (counseling abuse / cost alert)
+  const month = monthKey();
+  const monthRef = db.doc(`usageMonthly/${month}/users/${uid}`);
+  const monthUpdates: Record<string, unknown> = {
+    [field]: FieldValue.increment(amount),
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  if (extra?.cloudSttBytes) {
+    monthUpdates.cloudSttBytes = FieldValue.increment(extra.cloudSttBytes);
+  }
+  if (extra?.cloudSttSeconds) {
+    monthUpdates.cloudSttSeconds = FieldValue.increment(extra.cloudSttSeconds);
+  }
+  await monthRef.set(monthUpdates, { merge: true });
+
+  // Auto-flag heavy cloud STT on free tier (cost / abuse alert)
   if (field === "cloudSttChunks" && amount > 0) {
     const snap = await usageRef.get();
     const chunks = (snap.data()?.cloudSttChunks as number | undefined) ?? 0;
     if (chunks >= 400) {
+      const profile = await db.doc(`userProfiles/${uid}`).get();
+      const plan = normalizePlanId(profile.data()?.plan as string | undefined);
+      const planConfig = await getLaunchPlanConfig();
+      const limits = getPlanLimitsForSync(plan, planConfig);
+      const flagThreshold =
+        limits.cloudSttChunksPerDay ??
+        limits.cloudSttChunksPerDayWarn ??
+        400;
+      if (plan !== "free" && chunks < flagThreshold) {
+        return;
+      }
       const flagId = `${uid}_${day}`;
       const flagRef = db.doc(`flags/${flagId}`);
       const existing = await flagRef.get();

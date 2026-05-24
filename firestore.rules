@@ -14,19 +14,39 @@ service cloud.firestore {
     match /usageDaily/{day}/users/{uid} {
       allow read, write: if false;
     }
+    match /usageMonthly/{month}/users/{uid} {
+      allow read, write: if false;
+    }
+    match /billingEvents/{eventId} {
+      allow read, write: if false;
+    }
     match /flags/{flagId} {
       allow read, write: if false;
     }
     match /adminConfig/{doc} {
       allow read, write: if false;
     }
+    match /adminAuditLog/{entryId} {
+      allow read, write: if false;
+    }
+    match /clientErrors/{entryId} {
+      allow read, write: if false;
+    }
+    match /orgs/{orgId} {
+      allow read, write: if false;
+      match /members/{uid} {
+        allow read, write: if false;
+      }
+    }
 
-    // Users can submit support tickets; admins read via Functions
+    // Support: users create & read own tickets; admins via Functions
     match /supportTickets/{ticketId} {
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasAll(['uid', 'message', 'status']);
-      allow read, update, delete: if false;
+      allow read: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
     }
   }
 }

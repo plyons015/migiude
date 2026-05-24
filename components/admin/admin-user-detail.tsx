@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  adminDeleteUser,
   adminGetUser,
   adminUpdateUser,
 } from "@/lib/admin/client";
@@ -21,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AdminUsageQuota } from "@/components/admin/admin-usage-quota";
 import { Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -36,6 +38,19 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteEmailConfirm, setDeleteEmailConfirm] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteCode, setDeleteCode] = useState<
+    | "abuse"
+    | "billing_dispute"
+    | "duplicate_account"
+    | "gdpr_erasure"
+    | "retention_policy"
+    | "security_incident"
+    | "support_request"
+    | "policy_violation"
+    | "other"
+  >("other");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -154,6 +169,11 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
           ) : (
             <Badge variant="outline">Active</Badge>
           )}
+          {detail.usageMonth.overQuota ? (
+            <Badge className="border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+              Over free quota
+            </Badge>
+          ) : null}
           {detail.emailVerified ? (
             <Badge variant="outline">Email verified</Badge>
           ) : (
@@ -185,6 +205,19 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
           </div>
         </dl>
 
+        {detail.usageMonth ? (
+          <AdminUsageQuota
+            plan={detail.plan}
+            aiCalls={detail.usageMonth.aiCalls}
+            cloudSttChunks={detail.usageMonth.cloudSttChunks}
+            cloudSttChunksToday={
+              detail.usageByDay.find(
+                (d) => d.day === new Date().toISOString().slice(0, 10),
+              )?.cloudSttChunks ?? 0
+            }
+          />
+        ) : null}
+
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -210,7 +243,7 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
             onValueChange={(plan) =>
               void adminUpdateUser({
                 uid,
-                plan: plan as "free" | "pro" | "business",
+                plan: plan as "free" | "pro" | "power",
               }).then(() => load().then(onUpdated))
             }
           >
@@ -220,7 +253,7 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
             <SelectContent>
               <SelectItem value="free">Free</SelectItem>
               <SelectItem value="pro">Pro</SelectItem>
-              <SelectItem value="business">Business</SelectItem>
+              <SelectItem value="power">Power</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -272,6 +305,72 @@ export function AdminUserDetail({ uid, onClose, onUpdated }: Props) {
             onClick={() => void saveNotes()}
           >
             {saving ? "Saving…" : "Save notes"}
+          </Button>
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/20">
+          <p className="text-xs font-medium text-red-900 dark:text-red-200">
+            Delete user (irreversible)
+          </p>
+          <p className="text-[11px] text-red-800/90 dark:text-red-300">
+            Use only for verified erasure or approved retention policy actions.
+          </p>
+          <Select value={deleteCode} onValueChange={(v) => setDeleteCode(v as typeof deleteCode)}>
+            <SelectTrigger className="h-8 w-full bg-white dark:bg-zinc-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gdpr_erasure">gdpr_erasure</SelectItem>
+              <SelectItem value="retention_policy">retention_policy</SelectItem>
+              <SelectItem value="duplicate_account">duplicate_account</SelectItem>
+              <SelectItem value="policy_violation">policy_violation</SelectItem>
+              <SelectItem value="abuse">abuse</SelectItem>
+              <SelectItem value="security_incident">security_incident</SelectItem>
+              <SelectItem value="support_request">support_request</SelectItem>
+              <SelectItem value="billing_dispute">billing_dispute</SelectItem>
+              <SelectItem value="other">other</SelectItem>
+            </SelectContent>
+          </Select>
+          <input
+            value={deleteEmailConfirm}
+            onChange={(e) => setDeleteEmailConfirm(e.target.value)}
+            placeholder="Confirm target email"
+            className="w-full rounded-md border border-red-200 bg-white px-3 py-2 text-xs dark:border-red-800 dark:bg-zinc-900"
+          />
+          <textarea
+            value={deleteReason}
+            onChange={(e) => setDeleteReason(e.target.value)}
+            rows={2}
+            placeholder="Deletion reason/details"
+            className="w-full rounded-md border border-red-200 bg-white px-3 py-2 text-xs dark:border-red-800 dark:bg-zinc-900"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            disabled={
+              saving ||
+              !deleteEmailConfirm.trim() ||
+              deleteReason.trim().length < 3
+            }
+            onClick={() => {
+              setSaving(true);
+              setError(null);
+              void adminDeleteUser({
+                uid,
+                confirmEmail: deleteEmailConfirm.trim(),
+                reasonCode: deleteCode,
+                reasonText: deleteReason.trim(),
+              })
+                .then(() => {
+                  onUpdated();
+                  onClose();
+                })
+                .catch((e) => setError(String(e)))
+                .finally(() => setSaving(false));
+            }}
+          >
+            Delete user permanently
           </Button>
         </div>
       </CardContent>

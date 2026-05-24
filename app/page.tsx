@@ -1,21 +1,24 @@
 "use client";
 
+import { hardReplace } from "@/lib/navigation/hard-navigate";
 import { isNativePlatform } from "@/lib/capacitor/platform";
 import { isOnboardingComplete } from "@/lib/onboarding/preferences";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 /** Static-export friendly redirect to dashboard (or onboarding on first native launch). */
 export default function RootPage() {
-  const router = useRouter();
+  const redirected = useRef(false);
 
   useEffect(() => {
+    if (redirected.current) return;
+    redirected.current = true;
+
     if (isNativePlatform() && !isOnboardingComplete()) {
-      router.replace("/onboarding/");
+      hardReplace("/onboarding/");
       return;
     }
-    router.replace("/dashboard/");
-  }, [router]);
+    hardReplace("/dashboard/");
+  }, []);
 
   return null;
 }

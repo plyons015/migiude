@@ -1,9 +1,14 @@
 import { CallableRequest, HttpsError } from "firebase-functions/v2/https";
+import { ensureFirebaseAdmin } from "../firebase-admin-app";
 import { getAdminEmails } from "./config";
+
+import { assertAdminIpAllowed } from "./ip-allowlist";
 
 export async function assertAdmin(
   request: CallableRequest<unknown>,
 ): Promise<{ email: string; uid: string }> {
+  ensureFirebaseAdmin();
+  await assertAdminIpAllowed(request);
   if (!request.auth) {
     throw new HttpsError(
       "unauthenticated",

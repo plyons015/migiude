@@ -16,6 +16,9 @@ export function downloadUsersCsv(users: AdminUserRow[]): void {
     "suspended",
     "ai_calls_today",
     "cloud_stt_chunks_today",
+    "ai_calls_month",
+    "cloud_stt_minutes_month",
+    "over_quota",
     "created_at",
     "last_login_at",
   ];
@@ -28,6 +31,9 @@ export function downloadUsersCsv(users: AdminUserRow[]): void {
       u.suspended ? "yes" : "no",
       String(u.usageToday.aiCalls),
       String(u.usageToday.cloudSttChunks),
+      String(u.usageMonth.aiCalls),
+      String(u.usageMonth.cloudSttMinutes),
+      u.overQuota ? "yes" : "no",
       u.createdAt,
       u.lastLoginAt ?? "",
     ].map(escapeCsv),
@@ -37,7 +43,7 @@ export function downloadUsersCsv(users: AdminUserRow[]): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `migiude-users-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `ude-users-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

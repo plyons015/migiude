@@ -1,5 +1,12 @@
 "use client";
 
+import { AdminAuditPanel } from "@/components/admin/admin-audit-panel";
+import { AdminBillingPanel } from "@/components/admin/admin-billing-panel";
+import { AdminConfigPanel } from "@/components/admin/admin-config-panel";
+import { AdminPlansPanel } from "@/components/admin/admin-plans-panel";
+import { AdminErrorsPanel } from "@/components/admin/admin-errors-panel";
+import { AdminOrgsPanel } from "@/components/admin/admin-orgs-panel";
+import { AdminRetentionPanel } from "@/components/admin/admin-retention-panel";
 import { AdminSupportPanel } from "@/components/admin/admin-support-panel";
 import { AdminUserDetail } from "@/components/admin/admin-user-detail";
 import {
@@ -40,7 +47,18 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-type AdminTab = "overview" | "users" | "support" | "flags";
+type AdminTab =
+  | "overview"
+  | "users"
+  | "support"
+  | "retention"
+  | "audit"
+  | "errors"
+  | "orgs"
+  | "config"
+  | "plans"
+  | "billing"
+  | "flags";
 
 function StatCard({
   label,
@@ -70,6 +88,13 @@ const TAB_LABELS: { id: AdminTab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "users", label: "Users" },
   { id: "support", label: "Support" },
+  { id: "retention", label: "Retention" },
+  { id: "audit", label: "Audit" },
+  { id: "errors", label: "Errors" },
+  { id: "orgs", label: "Orgs" },
+  { id: "config", label: "Config" },
+  { id: "plans", label: "Plans" },
+  { id: "billing", label: "Billing" },
   { id: "flags", label: "Flags" },
 ];
 
@@ -82,6 +107,7 @@ export function AdminDashboard() {
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  const [focusTicketId, setFocusTicketId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyUid, setBusyUid] = useState<string | null>(null);
@@ -135,7 +161,7 @@ export function AdminDashboard() {
     try {
       await adminUpdateUser({
         uid,
-        plan: plan as "free" | "pro" | "business",
+        plan: plan as "free" | "pro" | "power",
       });
       await load(pageToken ?? undefined);
     } catch (e) {
@@ -234,7 +260,7 @@ export function AdminDashboard() {
 
       {tab === "overview" && dashboard ? (
         <>
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <StatCard
               label="Total users"
               value={dashboard.users.total}
@@ -255,35 +281,94 @@ export function AdminDashboard() {
               value={dashboard.flags.open}
               hint={`${dashboard.support.open} open support tickets`}
             />
+            <StatCard
+              label="Free over quota (MTD)"
+              value={dashboard.usage.overQuotaFree}
+              hint="AI or cloud STT above free limits"
+            />
           </section>
 
           <div className="grid gap-4 lg:grid-cols-2">
+            {(dashboard.support.recentOpenTickets?.length ?? 0) > 0 ? (
+              <Card className="lg:col-span-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <MessageCircle className="h-4 w-4" />
+                      Open support
+                    </CardTitle>
+                    <CardDescription>
+                      Latest tickets waiting for a reply
+                    </CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTab("support")}
+                  >
+                    Inbox
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    {dashboard.support.recentOpenTickets.map((t) => (
+                      <li
+                        key={t.id}
+                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-700"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium">
+                            {t.email ?? t.uid.slice(0, 10)}
+                          </span>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                            {t.messagePreview}
+                            {t.messagePreview.length >= 120 ? "…" : ""}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setFocusTicketId(t.id);
+                            setTab("support");
+                          }}
+                        >
+                          Reply
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ) : null}
+
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CreditCard className="h-4 w-4" />
-                  Subscriptions & billing
-                </CardTitle>
-                <CardDescription>{dashboard.billing.message}</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CreditCard className="h-4 w-4" />
+                    Billing snapshot
+                  </CardTitle>
+                  <CardDescription>{dashboard.billing.message}</CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setTab("billing")}
+                >
+                  Billing tab
+                </Button>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <p>
-                  Stripe:{" "}
-                  <Badge
-                    variant={
-                      dashboard.billing.stripeConfigured
-                        ? "default"
-                        : "outline"
-                    }
-                  >
-                    {dashboard.billing.stripeConfigured
-                      ? "Configured"
-                      : "Not connected"}
-                  </Badge>
-                </p>
-                <p className="text-muted-foreground">
-                  MRR / churn / failed payments appear here after Stripe
-                  webhooks + Firestore sync.
+                <p className="tabular-nums">
+                  MRR:{" "}
+                  {dashboard.billing.mrr != null
+                    ? `$${dashboard.billing.mrr.toFixed(2)}`
+                    : "—"}{" "}
+                  · Active subs: {dashboard.billing.activeSubscriptions ?? "—"}
                 </p>
               </CardContent>
             </Card>
@@ -348,7 +433,8 @@ export function AdminDashboard() {
                 Users
               </CardTitle>
               <CardDescription>
-                Click a row for detail, 7-day usage, notes, and trial extension.
+                Month-to-date usage (UTC). Click a row for quotas, notes, and
+                trial extension.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -378,6 +464,7 @@ export function AdminDashboard() {
                       <th className="py-2 pr-3">Email</th>
                       <th className="py-2 pr-3">Plan</th>
                       <th className="py-2 pr-3">Today</th>
+                      <th className="py-2 pr-3">Month (UTC)</th>
                       <th className="py-2 pr-3">Status</th>
                       <th className="py-2">Actions</th>
                     </tr>
@@ -416,7 +503,7 @@ export function AdminDashboard() {
                             <SelectContent>
                               <SelectItem value="free">Free</SelectItem>
                               <SelectItem value="pro">Pro</SelectItem>
-                              <SelectItem value="business">Business</SelectItem>
+                              <SelectItem value="power">Power</SelectItem>
                             </SelectContent>
                           </Select>
                         </td>
@@ -470,8 +557,29 @@ export function AdminDashboard() {
       ) : null}
 
       {tab === "support" ? (
-        <AdminSupportPanel onTicketResolved={() => void refreshDashboard()} />
+        <AdminSupportPanel
+          focusTicketId={focusTicketId}
+          onTicketResolved={() => {
+            setFocusTicketId(null);
+            void refreshDashboard();
+          }}
+          onViewUser={(uid) => {
+            setSelectedUid(uid);
+            setTab("users");
+          }}
+        />
       ) : null}
+
+      {tab === "billing" && dashboard ? (
+        <AdminBillingPanel billing={dashboard.billing} />
+      ) : null}
+
+      {tab === "retention" ? <AdminRetentionPanel /> : null}
+      {tab === "audit" ? <AdminAuditPanel /> : null}
+      {tab === "errors" ? <AdminErrorsPanel /> : null}
+      {tab === "orgs" ? <AdminOrgsPanel /> : null}
+      {tab === "config" ? <AdminConfigPanel /> : null}
+      {tab === "plans" ? <AdminPlansPanel /> : null}
 
       {tab === "flags" ? (
         <Card>
@@ -530,29 +638,6 @@ export function AdminDashboard() {
         </Card>
       ) : null}
 
-      {tab === "overview" && dashboard && dashboard.support.open > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <MessageCircle className="h-4 w-4" />
-              Open support
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {dashboard.support.open} open ticket
-              {dashboard.support.open === 1 ? "" : "s"} —{" "}
-              <button
-                type="button"
-                className="font-medium underline"
-                onClick={() => setTab("support")}
-              >
-                View inbox
-              </button>
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
     </div>
   );
 }

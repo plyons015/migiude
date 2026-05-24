@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_NAME } from "@/lib/branding/app-name";
 import { aiService } from "@/lib/ai/ai-service";
 import { signInAnonymousUser, signOutUser } from "@/lib/firebase/auth";
 import { getCapacitorPlatform, isNativePlatform } from "@/lib/capacitor/platform";
@@ -98,7 +99,7 @@ export function SetupDashboard({ firebaseConfigured }: SetupDashboardProps) {
           Phase 0
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Migiude
+          {APP_NAME}
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
           Privacy-first voice AI — base setup for web and Android.
@@ -198,7 +199,7 @@ export function SetupDashboard({ firebaseConfigured }: SetupDashboardProps) {
           Open dashboard
         </a>
         <a
-          href="/listen/"
+          href="/dashboard/"
           className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium dark:border-zinc-600"
         >
           <Mic className="h-4 w-4" />

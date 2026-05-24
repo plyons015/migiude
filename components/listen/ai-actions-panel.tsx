@@ -4,49 +4,52 @@ import { MermaidDiagram } from "@/components/mermaid-diagram";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { aiService, AiServiceError } from "@/lib/ai/ai-service";
+import {
+  mergeTodoTexts,
+  parseMeetingInsights,
+  type MeetingInsights,
+} from "@/lib/ai/parse-meeting-insights";
+import { saveInsightsTodos } from "@/lib/ai/save-insights-todos";
 import { saveNote } from "@/lib/data/notes-store";
 import { parseTodosFromMarkdown } from "@/lib/data/parse-todos";
-import { saveTodosFromMarkdown } from "@/lib/data/todos-store";
 import { signInAnonymousUser } from "@/lib/firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { isFirebaseConfigured } from "@/lib/env/client";
-import type { AiProcessOutput, AiProvider, AiTask } from "@/lib/ai/types";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { copyToClipboard } from "@/lib/clipboard";
-import {
-  Brain,
-  Copy,
-  ListTodo,
-  Loader2,
-  Network,
-  Save,
-  Sparkles,
-} from "lucide-react";
+import { Brain, Copy, Loader2, Save, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { PlanQuotaMessage } from "@/components/plan/plan-quota-message";
+import { resolveMeetingTemplate } from "@/lib/meetings/custom-templates-store";
+import { buildTemplateInsightsContext } from "@/lib/meetings/templates";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type AiActionsPanelProps = {
   transcript: string;
   disabled?: boolean;
+  templateId?: string | null;
 };
 
-const tasks: { task: AiTask; icon: typeof Sparkles; label: string }[] = [
-  { task: "summarize", icon: Sparkles, label: "Summarize" },
-  { task: "extract_todos", icon: ListTodo, label: "Todos" },
-  { task: "mind_map", icon: Network, label: "Mind map" },
-];
-
-export function AiActionsPanel({ transcript, disabled }: AiActionsPanelProps) {
+export function AiActionsPanel({
+  transcript,
+  disabled,
+  templateId,
+}: AiActionsPanelProps) {
   const firebaseReady = isFirebaseConfigured();
   const { provider, setProvider } = useAiSettings();
   const [user, setUser] = useState<User | null>(null);
   const [busy, setBusy] = useState(false);
-  const [output, setOutput] = useState<AiProcessOutput | null>(null);
+  const [insights, setInsights] = useState<MeetingInsights | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const { uid, ensureSignedIn } = useAuthUser();
+
+  const template = useMemo(
+    () => (templateId && uid ? resolveMeetingTemplate(templateId, uid) : null),
+    [templateId, uid],
+  );
 
   useEffect(() => {
     const auth = getFirebaseAuth();
@@ -54,45 +57,38 @@ export function AiActionsPanel({ transcript, disabled }: AiActionsPanelProps) {
     return onAuthStateChanged(auth, setUser);
   }, [firebaseReady]);
 
-  const runTask = useCallback(
-    async (task: AiTask) => {
-      if (!transcript.trim()) return;
-      setBusy(true);
-      setError(null);
-      setOutput(null);
+  const runInsights = useCallback(async () => {
+    if (!transcript.trim()) return;
+    setBusy(true);
+    setError(null);
+    setInsights(null);
+    setSaveMessage(null);
 
-      try {
-        await ensureSignedIn();
-
-        let result: AiProcessOutput;
-        switch (task) {
-          case "summarize":
-            result = await aiService.summarize(transcript, provider);
-            break;
-          case "extract_todos":
-            result = await aiService.extractTodos(transcript, provider);
-            break;
-          case "mind_map":
-            result = await aiService.mindMap(transcript, provider);
-            break;
-          default:
-            result = await aiService.ask(transcript, provider);
-        }
-        setOutput(result);
-      } catch (err) {
-        setError(
-          err instanceof AiServiceError
+    try {
+      await ensureSignedIn();
+      const ctx = buildTemplateInsightsContext(transcript, template);
+      const out = await aiService.meetingInsights(ctx, provider);
+      setInsights(parseMeetingInsights(out.result));
+    } catch (err) {
+      setError(
+        err instanceof AiServiceError
+          ? err.message
+          : err instanceof Error
             ? err.message
-            : err instanceof Error
-              ? err.message
-              : "AI request failed",
-        );
-      } finally {
-        setBusy(false);
-      }
-    },
-    [transcript, provider, ensureSignedIn],
-  );
+            : "AI request failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [transcript, provider, ensureSignedIn, template]);
+
+  const saveableTodoCount = useMemo(() => {
+    if (!insights) return 0;
+    return mergeTodoTexts(
+      parseTodosFromMarkdown(insights.todos).join("\n"),
+      insights.commitments,
+    ).length;
+  }, [insights]);
 
   if (!firebaseReady) {
     return (
@@ -114,7 +110,7 @@ export function AiActionsPanel({ transcript, disabled }: AiActionsPanelProps) {
           role="group"
           aria-label="AI provider"
         >
-          {(["gemini", "grok"] as AiProvider[]).map((p) => (
+          {(["gemini", "grok"] as const).map((p) => (
             <button
               key={p}
               type="button"
@@ -142,95 +138,119 @@ export function AiActionsPanel({ transcript, disabled }: AiActionsPanelProps) {
           Sign in to use AI
         </button>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {tasks.map(({ task, icon: Icon, label }) => (
-            <button
-              key={task}
-              type="button"
-              disabled={disabled || busy || !transcript.trim()}
-              onClick={() => void runTask(task)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 px-3 py-1.5 text-sm font-medium disabled:opacity-40 dark:border-zinc-600"
-            >
-              {busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Icon className="h-3.5 w-3.5" />
-              )}
-              {label}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          disabled={disabled || busy || !transcript.trim()}
+          onClick={() => void runInsights()}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-zinc-300 px-3 py-2 text-sm font-medium disabled:opacity-40 dark:border-zinc-600"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
+          Summary, todos, commitments & mind map
+        </button>
       )}
 
-      {error ? (
-        <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p>
-      ) : null}
+      {error ? <PlanQuotaMessage message={error} /> : null}
 
-      {output ? (
-        <div className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+      {insights ? (
+        <div className="space-y-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
           <p className="text-xs text-zinc-500">
-            {aiService.getTaskLabel(output.task)} · {output.provider}
+            {aiService.getTaskLabel("meeting_insights")} · {provider} · 1 AI call
           </p>
-          {output.task === "mind_map" ? (
-            <MermaidDiagram source={output.result} />
-          ) : (
-            <div className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-              {output.result}
+
+          {insights.summary ? (
+            <div className="space-y-1">
+              <h3 className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Summary
+              </h3>
+              <div className="max-h-32 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
+                {insights.summary}
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  void copyToClipboard(insights.summary).then((ok) => {
+                    setCopyMessage(ok ? "Summary copied." : "Copy failed.");
+                    setTimeout(() => setCopyMessage(null), 2000);
+                  });
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-zinc-300 px-2.5 py-1 text-xs font-medium dark:border-zinc-600"
+              >
+                <Copy className="h-3 w-3" />
+                Copy summary
+              </button>
             </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
+          ) : null}
+
+          {insights.todos ? (
+            <div className="space-y-1">
+              <h3 className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Todos
+              </h3>
+              <div className="max-h-32 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
+                {insights.todos}
+              </div>
+            </div>
+          ) : null}
+
+          {insights.commitments.length > 0 ? (
+            <div className="space-y-1">
+              <h3 className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Commitments (double-check)
+              </h3>
+              <p className="text-[11px] text-zinc-500">
+                First-person promises — merged with todos when you save.
+              </p>
+              <ul className="max-h-32 space-y-1 overflow-y-auto text-sm text-zinc-800 dark:text-zinc-200">
+                {insights.commitments.map((c) => (
+                  <li key={c.text} className="flex flex-wrap gap-x-2">
+                    <span>{c.text}</span>
+                    {c.dueAt ? (
+                      <span className="text-xs text-zinc-500">
+                        due {format(c.dueAt, "MMM d, h:mm a")}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {(insights.todos || insights.commitments.length > 0) && uid ? (
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || saveableTodoCount === 0}
               onClick={() => {
-                void copyToClipboard(output.result).then((ok) => {
-                  setCopyMessage(ok ? "Copied to clipboard." : "Copy failed.");
-                  setTimeout(() => setCopyMessage(null), 2000);
-                });
+                setBusy(true);
+                setSaveMessage(null);
+                void saveInsightsTodos(uid, {
+                  todosMarkdown: insights.todos,
+                  commitments: insights.commitments,
+                })
+                  .then((todos) =>
+                    setSaveMessage(`Saved ${todos.length} todo(s).`),
+                  )
+                  .catch((e) => setSaveMessage(String(e)))
+                  .finally(() => setBusy(false));
               }}
-              className="inline-flex items-center gap-1 rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium dark:border-zinc-600"
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
             >
-              <Copy className="h-3.5 w-3.5" />
-              Copy result
+              <Save className="h-3.5 w-3.5" />
+              Save {saveableTodoCount} todo{saveableTodoCount === 1 ? "" : "s"}
             </button>
-            {copyMessage ? (
-              <span className="text-xs text-zinc-500">{copyMessage}</span>
-            ) : null}
-          </div>
-          {uid ? (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {output.task === "extract_todos" ? (
-                <>
-                  {(() => {
-                    const lines = parseTodosFromMarkdown(output.result);
-                    const n = lines.length;
-                    return n > 0 ? (
-                      <p className="w-full text-xs text-zinc-600 dark:text-zinc-400">
-                        Create {n} todo{n === 1 ? "" : "s"} from this list?
-                      </p>
-                    ) : null;
-                  })()}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setBusy(true);
-                      setSaveMessage(null);
-                      void saveTodosFromMarkdown(uid, output.result)
-                        .then((todos) =>
-                          setSaveMessage(`Saved ${todos.length} todo(s).`),
-                        )
-                        .catch((e) => setSaveMessage(String(e)))
-                        .finally(() => setBusy(false));
-                    }}
-                    className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    Save todos
-                  </button>
-                </>
-              ) : null}
-              {output.task === "mind_map" ? (
+          ) : null}
+
+          {insights.mindMap ? (
+            <div className="space-y-1">
+              <h3 className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Mind map
+              </h3>
+              <MermaidDiagram source={insights.mindMap} />
+              {uid ? (
                 <button
                   type="button"
                   disabled={busy}
@@ -238,9 +258,9 @@ export function AiActionsPanel({ transcript, disabled }: AiActionsPanelProps) {
                     setBusy(true);
                     void saveNote(uid, {
                       title: `Mind map ${format(new Date(), "MMM d HH:mm")}`,
-                      body: transcript.slice(0, 500),
+                      body: insights.summary || transcript.slice(0, 500),
                       transcript,
-                      mindMapSource: output.result,
+                      mindMapSource: insights.mindMap,
                       source: "listen",
                     })
                       .then((note) =>
@@ -255,13 +275,16 @@ export function AiActionsPanel({ transcript, disabled }: AiActionsPanelProps) {
                   Save as note
                 </button>
               ) : null}
-              <Link
-                href="/notes/?tab=todos"
-                className="text-xs text-emerald-600 underline dark:text-emerald-400"
-              >
-                View todos
-              </Link>
             </div>
+          ) : null}
+
+          {uid ? (
+            <Link
+              href="/notes/?tab=todos"
+              className="text-xs text-emerald-600 underline dark:text-emerald-400"
+            >
+              View todos
+            </Link>
           ) : (
             <button
               type="button"
@@ -271,6 +294,10 @@ export function AiActionsPanel({ transcript, disabled }: AiActionsPanelProps) {
               Sign in to save results
             </button>
           )}
+
+          {copyMessage ? (
+            <p className="text-xs text-zinc-500">{copyMessage}</p>
+          ) : null}
           {saveMessage ? (
             <p className="text-xs text-zinc-500">{saveMessage}</p>
           ) : null}

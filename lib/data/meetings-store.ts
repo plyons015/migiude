@@ -96,5 +96,6 @@ function meetingFirestorePayload(meeting: MeetingRecord) {
     topics: meeting.topics ?? [],
     agenda: meeting.agenda ?? null,
     minutes: meeting.minutes ?? null,
+    templateId: meeting.templateId ?? null,
   };
 }

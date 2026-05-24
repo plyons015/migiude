@@ -1,7 +1,10 @@
 import { defineSecret } from "firebase-functions/params";
+import { stripeSecretKey } from "../billing/stripe-client";
 
 /** Bound at deploy via `firebase functions:secrets:set ADMIN_EMAILS` */
 export const adminEmailsSecret = defineSecret("ADMIN_EMAILS");
+
+export const adminSecrets = [adminEmailsSecret, stripeSecretKey];
 
 export function bindAdminEmailsEnv(): void {
   if (process.env.FUNCTIONS_EMULATOR) return;

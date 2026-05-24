@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/branding/app-name";
 import { doc, setDoc } from "firebase/firestore";
 import { isNativePlatform } from "@/lib/capacitor/platform";
 import { getFirebaseDb } from "@/lib/firebase/client";
@@ -55,7 +56,7 @@ export async function registerPushNotifications(
             void import("@/lib/notifications/native-reminders").then(
               ({ showImmediateLocalNotification }) =>
                 showImmediateLocalNotification(
-                  notification.title ?? "Migiude",
+                  notification.title ?? APP_NAME,
                   notification.body ?? "",
                 ),
             );

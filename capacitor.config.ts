@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.migiude.app",
-  appName: "Migiude",
+  appName: "Ude",
   webDir: "out",
   android: {
     buildOptions: {

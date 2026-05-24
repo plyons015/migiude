@@ -1,7 +1,12 @@
 import { FunctionsError, httpsCallable } from "firebase/functions";
 import type {
+  AdminAuditEntry,
+  AdminClientError,
+  AdminConfigResponse,
   AdminDashboard,
   AdminFlag,
+  AdminOrg,
+  RetentionPoint,
   AdminSupportTicket,
   AdminUserDetail,
   AdminUserRow,
@@ -86,7 +91,7 @@ export async function adminListUsers(options?: {
 export async function adminUpdateUser(input: {
   uid: string;
   role?: "admin" | "member";
-  plan?: "free" | "pro" | "business";
+  plan?: "free" | "pro" | "power";
   suspended?: boolean;
   trialEndsAt?: number | null;
   adminNotes?: string;
@@ -164,12 +169,195 @@ export async function adminUpdateSupportTicket(input: {
   status: "open" | "resolved";
   adminReply?: string;
 }): Promise<void> {
+  const fn = httpsCallable<
+    { ticketId: string; status: string; adminReply?: string },
+    { ok: boolean }
+  >(requireFunctions(), "adminUpdateSupportTicket");
+  const payload: { ticketId: string; status: string; adminReply?: string } = {
+    ticketId: input.ticketId,
+    status: input.status,
+  };
+  const reply = input.adminReply?.trim();
+  if (reply) {
+    payload.adminReply = reply;
+  }
+  try {
+    await fn(payload);
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminListAuditLog(
+  limit = 50,
+): Promise<{ entries: AdminAuditEntry[] }> {
+  const fn = httpsCallable<{ limit: number }, { entries: AdminAuditEntry[] }>(
+    requireFunctions(),
+    "adminListAuditLog",
+  );
+  try {
+    const { data } = await fn({ limit });
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminDeleteUser(input: {
+  uid: string;
+  confirmEmail: string;
+  reasonCode:
+    | "abuse"
+    | "billing_dispute"
+    | "duplicate_account"
+    | "gdpr_erasure"
+    | "retention_policy"
+    | "security_incident"
+    | "support_request"
+    | "policy_violation"
+    | "other";
+  reasonText: string;
+}): Promise<{ ok: boolean; manifest: unknown }> {
+  const fn = httpsCallable<typeof input, { ok: boolean; manifest: unknown }>(
+    requireFunctions(),
+    "adminDeleteUser",
+  );
+  try {
+    const { data } = await fn(input);
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminGetRetention(days = 28): Promise<{ series: RetentionPoint[] }> {
+  const fn = httpsCallable<{ days: number }, { series: RetentionPoint[] }>(
+    requireFunctions(),
+    "adminGetRetention",
+  );
+  try {
+    const { data } = await fn({ days });
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminGetAdminConfig(): Promise<AdminConfigResponse> {
+  const fn = httpsCallable<void, AdminConfigResponse>(
+    requireFunctions(),
+    "adminGetAdminConfig",
+  );
+  try {
+    const { data } = await fn();
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminUpdateAdminConfig(input: {
+  adminEmails?: string[];
+  adminIpAllowlist?: string[];
+}): Promise<void> {
   const fn = httpsCallable<typeof input, { ok: boolean }>(
     requireFunctions(),
-    "adminUpdateSupportTicket",
+    "adminUpdateAdminConfig",
   );
   try {
     await fn(input);
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminListOrgs(): Promise<{ orgs: AdminOrg[] }> {
+  const fn = httpsCallable<void, { orgs: AdminOrg[] }>(
+    requireFunctions(),
+    "adminListOrgs",
+  );
+  try {
+    const { data } = await fn();
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminCreateOrg(input: {
+  name: string;
+  seatLimit: number;
+  plan?: "power";
+}): Promise<{ ok: boolean; orgId: string }> {
+  const fn = httpsCallable<
+    { name: string; seatLimit: number; plan?: "power" },
+    { ok: boolean; orgId: string }
+  >(requireFunctions(), "adminCreateOrg");
+  try {
+    const { data } = await fn(input);
+    return data;
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminUpdateOrg(input: {
+  orgId: string;
+  name?: string;
+  seatLimit?: number;
+}): Promise<void> {
+  const fn = httpsCallable<typeof input, { ok: boolean }>(
+    requireFunctions(),
+    "adminUpdateOrg",
+  );
+  try {
+    await fn(input);
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminAddOrgMember(input: {
+  orgId: string;
+  uid: string;
+  role?: "owner" | "member";
+}): Promise<void> {
+  const fn = httpsCallable<typeof input, { ok: boolean }>(
+    requireFunctions(),
+    "adminAddOrgMember",
+  );
+  try {
+    await fn(input);
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminRemoveOrgMember(input: {
+  orgId: string;
+  uid: string;
+}): Promise<void> {
+  const fn = httpsCallable<typeof input, { ok: boolean }>(
+    requireFunctions(),
+    "adminRemoveOrgMember",
+  );
+  try {
+    await fn(input);
+  } catch (error) {
+    throw new Error(parseError(error));
+  }
+}
+
+export async function adminListClientErrors(
+  limit = 50,
+): Promise<{ errors: AdminClientError[] }> {
+  const fn = httpsCallable<{ limit: number }, { errors: AdminClientError[] }>(
+    requireFunctions(),
+    "adminListClientErrors",
+  );
+  try {
+    const { data } = await fn({ limit });
+    return data;
   } catch (error) {
     throw new Error(parseError(error));
   }

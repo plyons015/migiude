@@ -23,12 +23,9 @@ const KEYS = {
   localOnly: "migiude-local-only",
   notifications: "migiude-notifications",
   theme: "migiude-theme",
-  autoAiOnMeetingEnd: "migiude-auto-ai-meeting-end",
   rollingSummary: "migiude-rolling-summary",
   rollingSummaryMinutes: "migiude-rolling-summary-min",
-  smartTagsOnEnd: "migiude-smart-tags-end",
   voiceCommands: "migiude-voice-commands",
-  commitmentAwareness: "migiude-commitment-awareness",
   transcriptionMode: "migiude-transcription-mode",
   meetingTranscription: "migiude-meeting-transcription-mode",
   quickTranscription: "migiude-quick-transcription-mode",
@@ -101,15 +98,6 @@ export function setThemePreference(theme: ThemePreference): void {
   window.dispatchEvent(new Event("migiude-settings"));
 }
 
-export function isAutoAiOnMeetingEnd(): boolean {
-  return readBool(KEYS.autoAiOnMeetingEnd, true);
-}
-
-export function setAutoAiOnMeetingEnd(enabled: boolean): void {
-  localStorage.setItem(KEYS.autoAiOnMeetingEnd, String(enabled));
-  window.dispatchEvent(new Event("migiude-settings"));
-}
-
 export function isRollingSummaryEnabled(): boolean {
   return readBool(KEYS.rollingSummary, false);
 }
@@ -134,30 +122,12 @@ export function setRollingSummaryMinutes(minutes: number): void {
   window.dispatchEvent(new Event("migiude-settings"));
 }
 
-export function isSmartTagsOnEnd(): boolean {
-  return readBool(KEYS.smartTagsOnEnd, true);
-}
-
-export function setSmartTagsOnEnd(enabled: boolean): void {
-  localStorage.setItem(KEYS.smartTagsOnEnd, String(enabled));
-  window.dispatchEvent(new Event("migiude-settings"));
-}
-
 export function areVoiceCommandsEnabled(): boolean {
   return readBool(KEYS.voiceCommands, true);
 }
 
 export function setVoiceCommandsEnabled(enabled: boolean): void {
   localStorage.setItem(KEYS.voiceCommands, String(enabled));
-  window.dispatchEvent(new Event("migiude-settings"));
-}
-
-export function isCommitmentAwarenessEnabled(): boolean {
-  return readBool(KEYS.commitmentAwareness, true);
-}
-
-export function setCommitmentAwarenessEnabled(enabled: boolean): void {
-  localStorage.setItem(KEYS.commitmentAwareness, String(enabled));
   window.dispatchEvent(new Event("migiude-settings"));
 }
 

@@ -1,14 +1,13 @@
-Category,Free Tier,Pro Tier ($12–15/mo or $99–129/yr),Benefit of Upgrading
-Transcription,Unlimited on-device (Browser Speech),Unlimited on-device + Unlimited Cloud STT (with speaker labels),"Reliable meetings anywhere, even on poor networks"
-Cloud Transcription Limit,60 minutes per month,Unlimited,No more worrying about running out mid-month
-AI Processing,"20 calls per month (summarize, todos, mind map, tags, recap, Q&A, etc.)",Unlimited AI calls,"Daily recaps, heavy meeting processing, mind maps on demand"
-Firestore Sync,Limited (last 5–10 items) or delayed sync,Full real-time sync across Web + Android,Seamless experience between phone and computer
-Daily Recap,Basic (limited AI),Full personalized AI morning brief,High daily value and follow-through
-Meeting Room Features,Full basic access,"Advanced: Unlimited appends, rolling summaries during meetings, priority voice commands",Deeper workflow for power users
-Follow-ups & Todos,Full local + basic reminders,Full + FCM push notifications + advanced scheduling,Never miss commitments again
-Storage,Local-only vault (unlimited),Local + full Firestore cloud backup & history,Peace of mind and multi-device access
-Exports,Markdown export,Full bundle export + future formats,Better sharing and archiving
-Usage Dashboard,Not available,Included – see your usage and costs,Transparency and control
-Support,Community / docs,Priority email support,Faster help when you need it
-New Features & Early Access,Standard rollout,"Early access to calendar sync, templates, etc.",Get new tools first
-Quotas,Strict monthly reset,Very high or soft limits,Scales with your usage
+Category,Free Tier,Pro Tier ($14.99/mo or $129/yr),Power Tier ($22.99/mo or $229/yr),Benefit of Upgrading
+Transcription,Unlimited on-device (browser speech),Unlimited on-device + generous cloud transcription,Unlimited on-device + high-volume fair use cloud transcription,"Reliable meetings anywhere; cloud when you need labels or backup"
+Cloud Transcription Limit,30 minutes per month,1000 minutes per month,~3000 minutes per month (fair use) + higher daily burst,Clear monthly caps; Power for full workdays
+AI Processing,"12 actions per month (summarize, todos, mind map, recap, Q&A, etc.)",200 AI actions per month,High-volume AI processing (fair use),Daily recaps and heavy processing without surprise bills
+Firestore Sync,Limited (last 5–10 items) or delayed sync,Full real-time sync across Web + Android,Full real-time sync across Web + Android,Seamless phone + computer workflow
+Daily Recap,Basic (limited AI),Full personalized AI morning brief,Full personalized AI morning brief,High daily value and follow-through
+Meeting Room Features,Full basic access,"Advanced: rolling summaries, generous appends",Same as Pro + higher daily cloud burst,Deeper workflow for power users
+Follow-ups & Todos,Full local + basic reminders,Full + FCM push notifications + advanced scheduling,Full + FCM + advanced scheduling,Never miss commitments
+Storage,Local-only vault (unlimited on-device),Local + full Firestore cloud backup & history,Local + longer cloud history (90d target),Peace of mind and multi-device access
+Exports,Markdown export,Full bundle export + future formats,Full bundle + beta formats,Better sharing and archiving
+Usage Dashboard,Not available,Included,Included,Transparency before you hit limits
+Support,Community / docs,Priority email (48h target),Priority email (24h target) + beta access,Faster help when you need it
+Quotas,Strict monthly reset (enforced),Generous monthly caps (enforced),High monthly caps + daily burst (enforced),Profit-safe scaling from day one

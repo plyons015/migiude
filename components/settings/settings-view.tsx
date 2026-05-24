@@ -1,7 +1,9 @@
 "use client";
 
 import { SecuritySettings } from "@/components/auth/security-settings";
-import { SupportTicketForm } from "@/components/settings/support-ticket-form";
+import { MeetingTemplatesSettings } from "@/components/settings/meeting-templates-settings";
+import { BillingSettings } from "@/components/settings/billing-settings";
+import { APP_NAME } from "@/lib/branding/app-name";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { useAppSettings } from "@/hooks/use-app-settings";
 import { clearAllLocalData } from "@/lib/data/local-db";
@@ -9,16 +11,13 @@ import { aiService } from "@/lib/ai/ai-service";
 import type { AiProvider } from "@/lib/ai/types";
 import { requestNotificationPermission } from "@/lib/notifications/reminders";
 import {
-  setAutoAiOnMeetingEnd,
   setLocalOnlyMode,
   setNotificationsEnabled,
   setRollingSummaryEnabled,
   setRollingSummaryMinutes,
-  setSmartTagsOnEnd,
   setSpeechLanguage,
   setThemePreference,
   setVoiceCommandsEnabled,
-  setCommitmentAwarenessEnabled,
   setMeetingTranscriptionMode,
   setQuickTranscriptionMode,
   SPEECH_LANGUAGES,
@@ -55,12 +54,9 @@ export function SettingsView() {
     localOnly,
     notifications,
     theme,
-    autoAiOnMeetingEnd,
     rollingSummary,
     rollingSummaryMinutes,
-    smartTagsOnEnd,
     voiceCommands,
-    commitmentAwareness,
     meetingTranscriptionMode,
     quickTranscriptionMode,
   } = useAppSettings();
@@ -169,6 +165,11 @@ export function SettingsView() {
                   : "Browser speech for full meetings — no speaker split."}
             </p>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Android: while the mic is on, {APP_NAME} pauses most other apps&apos;
+            audio. Close music or video apps if you still see foreign text in the
+            transcript.
+          </p>
           <Label htmlFor="speech-lang">Recognition language</Label>
           <Select
             value={speechLang}
@@ -191,36 +192,12 @@ export function SettingsView() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Meetings</CardTitle>
-          <CardDescription>When you tap End meeting on Listen</CardDescription>
+          <CardDescription>
+            During recording on Listen. Use AI actions after the meeting for
+            summary, todos, and commitments.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="auto-ai-meeting">Auto AI on end</Label>
-              <p className="text-xs text-muted-foreground">
-                Summarize transcript and extract todos (uses your AI provider)
-              </p>
-            </div>
-            <Switch
-              id="auto-ai-meeting"
-              checked={autoAiOnMeetingEnd}
-              onCheckedChange={setAutoAiOnMeetingEnd}
-            />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="smart-tags">Smart tags on end</Label>
-              <p className="text-xs text-muted-foreground">
-                AI suggests tags before saving the meeting
-              </p>
-            </div>
-            <Switch
-              id="smart-tags"
-              checked={smartTagsOnEnd}
-              onCheckedChange={setSmartTagsOnEnd}
-            />
-          </div>
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-0.5">
               <Label htmlFor="rolling-summary">Rolling summary</Label>
@@ -256,20 +233,6 @@ export function SettingsView() {
           ) : null}
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-0.5">
-              <Label htmlFor="commitment-awareness">Commitment awareness</Label>
-              <p className="text-xs text-muted-foreground">
-                Detect &quot;I will…&quot; and create timed reminders (e.g. this
-                afternoon)
-              </p>
-            </div>
-            <Switch
-              id="commitment-awareness"
-              checked={commitmentAwareness}
-              onCheckedChange={setCommitmentAwarenessEnabled}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
               <Label htmlFor="voice-cmd">Voice commands</Label>
               <p className="text-xs text-muted-foreground">
                 &quot;add todo: …&quot;, &quot;highlight&quot;, &quot;summarize
@@ -287,7 +250,19 @@ export function SettingsView() {
 
       <SecuritySettings />
 
-      <SupportTicketForm />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Help & support</CardTitle>
+          <CardDescription>
+            Use the <strong>?</strong> button at the bottom-right of the screen
+            for guides, how-tos (coming soon), and support messages.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <MeetingTemplatesSettings />
+
+      <BillingSettings />
 
       <Card>
         <CardHeader>

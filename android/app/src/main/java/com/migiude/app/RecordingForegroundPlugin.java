@@ -7,6 +7,7 @@ import android.os.Build;
 import android.util.Log;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.PermissionState;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -41,7 +42,7 @@ public class RecordingForegroundPlugin extends Plugin {
             call.resolve();
         } else {
             call.reject(
-                "Microphone permission denied. Open Settings → Apps → Migiude → Permissions."
+                "Microphone permission denied. Open Settings → Apps → Ude → Permissions."
             );
         }
     }
@@ -61,6 +62,8 @@ public class RecordingForegroundPlugin extends Plugin {
             return;
         }
 
+        RecordingAudioSession.begin(getContext());
+
         Intent intent = new Intent(getContext(), RecordingForegroundService.class);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -68,7 +71,9 @@ public class RecordingForegroundPlugin extends Plugin {
             } else {
                 getActivity().startService(intent);
             }
-            call.resolve();
+            JSObject result = new JSObject();
+            result.put("audioFocusGranted", RecordingAudioSession.isFocusGranted());
+            call.resolve(result);
         } catch (Exception e) {
             Log.e(TAG, "startForegroundService failed", e);
             call.reject("Could not start recording notification: " + e.getMessage());

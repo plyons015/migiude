@@ -3,13 +3,17 @@
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useAppSettings } from "@/hooks/use-app-settings";
 import { ensureMicrophonePermission } from "@/lib/speech/microphone";
+import { blobToBase64 } from "@/lib/speech/cloud-audio-capture";
+import { measureAudioLevel } from "@/lib/speech/measure-audio-level";
+import { MIN_UPLOAD_BYTES } from "@/lib/speech/vad/vad-config";
 import {
-  blobToBase64,
-  CloudAudioCapture,
+  VadAudioCapture,
   isMediaRecorderSupported,
-} from "@/lib/speech/cloud-audio-capture";
+  type CloudCapturePhase,
+} from "@/lib/speech/vad-audio-capture";
 import { buildDisplayTranscript } from "@/lib/speech/transcript-merge";
 import type { SpeechListenState, TranscriptChunk } from "@/lib/speech/types";
+import { filterTranscriptSegments } from "@/lib/stt/sanitize-segments";
 import { transcribeAudioChunk } from "@/lib/stt/stt-service";
 import { isFirebaseConfigured } from "@/lib/env/client";
 import {
@@ -29,13 +33,16 @@ function createChunkId(): string {
   return `chunk-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+export type CloudSttUiPhase = CloudCapturePhase | "transcribing" | "idle";
+
 export function useCloudTranscription(langOverride?: string) {
   const { speechLang } = useAppSettings();
   const lang = langOverride ?? speechLang;
   const { ensureSignedIn } = useAuthUser();
-  const captureRef = useRef<CloudAudioCapture | null>(null);
+  const captureRef = useRef<VadAudioCapture | null>(null);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const [state, setState] = useState<SpeechListenState>("idle");
+  const [capturePhase, setCapturePhase] = useState<CloudCapturePhase>("idle");
   const [interimText, setInterimText] = useState("");
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,27 +59,55 @@ export function useCloudTranscription(langOverride?: string) {
     [chunks, interimText],
   );
 
+  const uiPhase: CloudSttUiPhase = useMemo(() => {
+    if (pendingChunks > 0) return "transcribing";
+    if (state === "listening" || state === "starting") return capturePhase;
+    return "idle";
+  }, [pendingChunks, state, capturePhase]);
+
   const appendSegments = useCallback(
     (segments: Array<{ speakerId: number; text: string }>) => {
+      const filtered = filterTranscriptSegments(segments);
+      if (filtered.length === 0) return;
+
       const now = Date.now();
-      const next: TranscriptChunk[] = segments
-        .filter((s) => s.text.trim())
-        .map((s, i) => ({
-          id: createChunkId(),
-          text: s.text.trim(),
-          timestamp: now + i,
-          speakerId: s.speakerId,
-        }));
-      if (next.length === 0) return;
-      setChunks((prev) => [...prev, ...next]);
+      const next: TranscriptChunk[] = filtered.map((s, i) => ({
+        id: createChunkId(),
+        text: s.text,
+        timestamp: now + i,
+        speakerId: s.speakerId,
+      }));
+
+      setChunks((prev) => {
+        const last = prev[prev.length - 1];
+        const deduped = next.filter(
+          (n) =>
+            !(
+              last &&
+              last.text === n.text &&
+              last.speakerId === n.speakerId
+            ),
+        );
+        if (deduped.length === 0) return prev;
+        return [...prev, ...deduped];
+      });
     },
     [],
   );
 
-  const processBlob = useCallback(
-    async (blob: Blob, mimeType: string) => {
+  const processSegment = useCallback(
+    async (blob: Blob, mimeType: string, durationHintSec: number) => {
+      if (blob.size < MIN_UPLOAD_BYTES) {
+        return;
+      }
+
+      const level = await measureAudioLevel(blob);
+      const audioDurationMs = Math.round(
+        Math.max(level.durationSec, durationHintSec, 0.3) * 1000,
+      );
+
       setPendingChunks((n) => n + 1);
-      setInterimText("Transcribing audio…");
+      setInterimText("Transcribing…");
       try {
         await ensureSignedIn();
         const audioBase64 = await blobToBase64(blob);
@@ -80,8 +115,11 @@ export function useCloudTranscription(langOverride?: string) {
           audioBase64,
           mimeType,
           lang,
+          audioDurationMs,
         });
-        appendSegments(out.segments);
+        const spoken = filterTranscriptSegments(out.segments);
+        if (spoken.length === 0) return;
+        appendSegments(spoken);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Cloud transcription failed.";
@@ -89,23 +127,26 @@ export function useCloudTranscription(langOverride?: string) {
         setState("error");
       } finally {
         setPendingChunks((n) => Math.max(0, n - 1));
-        setInterimText((prev) =>
-          prev === "Transcribing audio…" ? "" : prev,
-        );
+        setInterimText((prev) => (prev === "Transcribing…" ? "" : prev));
       }
     },
     [appendSegments, ensureSignedIn, lang],
   );
 
   useEffect(() => {
-    captureRef.current = new CloudAudioCapture((blob, mime) => {
-      queueRef.current = queueRef.current.then(() => processBlob(blob, mime));
-    });
+    captureRef.current = new VadAudioCapture(
+      (payload) => {
+        queueRef.current = queueRef.current.then(() =>
+          processSegment(payload.blob, payload.mimeType, payload.durationSec),
+        );
+      },
+      (phase) => setCapturePhase(phase),
+    );
     return () => {
       captureRef.current?.destroy();
       captureRef.current = null;
     };
-  }, [processBlob]);
+  }, [processSegment]);
 
   const startListening = useCallback(async () => {
     setError(null);
@@ -127,6 +168,7 @@ export function useCloudTranscription(langOverride?: string) {
     setState("stopping");
     void captureRef.current?.stop().finally(() => {
       setInterimText("");
+      setCapturePhase("idle");
       setState("idle");
     });
   }, []);
@@ -152,7 +194,9 @@ export function useCloudTranscription(langOverride?: string) {
     supported,
     state,
     isListening,
-    interimText: busyTranscribing && !interimText ? "Transcribing audio…" : interimText,
+    capturePhase: uiPhase,
+    interimText:
+      uiPhase === "transcribing" && !interimText ? "Transcribing…" : interimText,
     chunks,
     fullTranscript,
     error,

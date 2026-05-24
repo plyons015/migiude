@@ -10,10 +10,18 @@ import {
   getTranscriptionModeForContext,
   type TranscriptionContext,
 } from "@/lib/settings/preferences";
-import { useCallback, useMemo, useRef } from "react";
+import {
+  beginExclusiveCapture,
+  endExclusiveCapture,
+} from "@/lib/capacitor/recording-foreground";
+import { isAndroid } from "@/lib/capacitor/platform";
+import type { CloudSttUiPhase } from "@/hooks/use-cloud-transcription";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 export type StartListeningOptions = {
   context?: TranscriptionContext;
+  /** Override settings for this session (e.g. home-screen mic hold). */
+  mode?: TranscriptionMode;
 };
 
 export function useTranscription(
@@ -37,6 +45,7 @@ export function useTranscription(
 
   const idleMode = resolveMode(idleContext);
   const sessionModeRef = useRef<TranscriptionMode | null>(null);
+  const [captureWarning, setCaptureWarning] = useState<string | null>(null);
 
   const browser = useSpeechRecognition(langOverride);
   const cloud = useCloudTranscription(langOverride);
@@ -67,12 +76,30 @@ export function useTranscription(
   const startListening = useCallback(
     async (options?: StartListeningOptions) => {
       const context = options?.context ?? idleContext;
-      const mode = resolveMode(context);
+      const mode = options?.mode ?? resolveMode(context);
       sessionModeRef.current = mode;
-      if (mode === "cloud") {
-        await cloud.startListening();
-      } else {
-        await browser.startListening();
+      setCaptureWarning(null);
+
+      if (isAndroid()) {
+        const { audioFocusGranted } = await beginExclusiveCapture();
+        if (!audioFocusGranted) {
+          setCaptureWarning(
+            "Another app may still be playing audio. Close music, podcasts, or video apps, then try again.",
+          );
+        }
+      }
+
+      try {
+        if (mode === "cloud") {
+          await cloud.startListening();
+        } else {
+          await browser.startListening();
+        }
+      } catch (error) {
+        if (isAndroid()) {
+          await endExclusiveCapture();
+        }
+        throw error;
       }
     },
     [idleContext, resolveMode, cloud, browser],
@@ -86,11 +113,20 @@ export function useTranscription(
       browser.stopListening();
     }
     sessionModeRef.current = null;
+    if (isAndroid()) {
+      void endExclusiveCapture();
+    }
   }, [sessionMode, cloud, browser]);
+
+  const capturePhase: CloudSttUiPhase | undefined =
+    sessionMode === "cloud"
+      ? (active as { capturePhase?: CloudSttUiPhase }).capturePhase
+      : undefined;
 
   return {
     ...active,
     supported,
+    capturePhase,
     transcriptionMode: sessionMode,
     idleTranscriptionMode: idleMode,
     meetingTranscriptionMode: resolveMode("meeting"),
@@ -100,5 +136,6 @@ export function useTranscription(
     capabilities,
     startListening,
     stopListening,
+    captureWarning,
   };
 }

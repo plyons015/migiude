@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_NAME } from "@/lib/branding/app-name";
 import { setOnboardingComplete } from "@/lib/onboarding/preferences";
 import { ensureMicrophonePermission } from "@/lib/speech/microphone";
 import { requestNativeNotificationPermission } from "@/lib/notifications/native-reminders";
@@ -14,7 +15,7 @@ import { useState } from "react";
 
 const STEPS = [
   {
-    title: "Welcome to Migiude",
+    title: `Welcome to ${APP_NAME}`,
     body: "Capture meetings, get AI summaries, and track follow-ups — with privacy-first defaults.",
     icon: null,
   },
@@ -25,7 +26,7 @@ const STEPS = [
   },
   {
     title: "Microphone",
-    body: "Migiude needs the mic for Listen and meetings. Grant permission when prompted.",
+    body: `${APP_NAME} needs the mic for Listen and meetings. Grant permission when prompted.`,
     icon: Mic,
   },
   {
@@ -87,7 +88,7 @@ export function OnboardingView() {
         {showLogo ? (
           <Image
             src="/branding/logo.png"
-            alt="Migiude"
+            alt={APP_NAME}
             width={160}
             height={48}
             unoptimized

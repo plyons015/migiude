@@ -1,25 +1,30 @@
 "use client";
 
+import { LogoutHeaderButton } from "@/components/auth/logout-header-button";
+import { HelpHeaderButton } from "@/components/help/help-header-button";
 import { EmailVerificationBanner } from "@/components/auth/email-verification-banner";
-import { DailyRecapCard } from "@/components/dashboard/daily-recap-card";
-import { TodoList } from "@/components/todos/todo-list";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IpodDisplay } from "@/components/dashboard/ipod-display";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  IpodRecordingDisplay,
+  type LineAction,
+} from "@/components/dashboard/ipod-recording-display";
+import { MicHoldButton } from "@/components/dashboard/mic-hold-button";
+import { PostSaveAiDialog } from "@/components/dashboard/post-save-ai-dialog";
+import { RecordingMicButton } from "@/components/dashboard/recording-mic-button";
+import { TemplateSelector } from "@/components/dashboard/template-selector";
+import { ThumbRemote } from "@/components/dashboard/thumb-remote";
+import { useListenSession } from "@/hooks/use-listen-session";
+import { useMeetingTemplates } from "@/hooks/use-meeting-templates";
 import { useMeetings } from "@/hooks/use-meetings";
 import { useNotes } from "@/hooks/use-notes";
 import { useTodos } from "@/hooks/use-todos";
 import { useAuthUser } from "@/hooks/use-auth-user";
-import { signOutUser } from "@/lib/firebase/auth";
-import { format } from "date-fns";
-import { Calendar, FileText, ListTodo, LogOut, Mic, Plus } from "lucide-react";
+import { APP_NAME } from "@/lib/branding/app-name";
+import type { TranscriptChunk } from "@/lib/speech/types";
+import { AlertCircle, Loader2, Settings } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useMemo, useState } from "react";
 
 type DashboardViewProps = {
   userId: string;
@@ -27,174 +32,233 @@ type DashboardViewProps = {
 
 export function DashboardView({ userId }: DashboardViewProps) {
   const { user } = useAuthUser();
+  const session = useListenSession(userId);
   const { notes } = useNotes(userId);
   const { meetings } = useMeetings(userId);
-  const { openTodos, dueSoon } = useTodos(userId);
-  const recentNotes = notes.slice(0, 3);
-  const recentMeetings = meetings.slice(0, 5);
+  const { openTodos } = useTodos(userId);
+  const { templates, selectedId } = useMeetingTemplates(userId);
+  const [holdCloudHint, setHoldCloudHint] = useState(false);
+  const [isHoldingMic, setIsHoldingMic] = useState(false);
 
-  const quickActions = [
-    { href: "/listen/", label: "Listen", icon: Mic, desc: "Voice → text" },
-    { href: "/notes/", label: "New note", icon: Plus, desc: "Write or paste" },
-    {
-      href: "/notes/",
-      label: "All notes",
-      icon: FileText,
-      desc: `${notes.length} saved`,
-    },
-    {
-      href: "/notes/?tab=todos",
-      label: "Todos",
-      icon: ListTodo,
-      desc: `${openTodos.length} open`,
-    },
-  ];
+  const activeTemplate = useMemo(
+    () => templates.find((t) => t.id === selectedId) ?? null,
+    [templates, selectedId],
+  );
 
   const displayName =
     user?.displayName?.trim() ||
     user?.email?.split("@")[0] ||
     "there";
 
-  return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight">
-            Hello, {displayName}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Quick actions and recents
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0 gap-1.5"
-          onClick={() => void signOutUser()}
+  const subtitle = useMemo(() => {
+    const parts: string[] = [];
+    if (openTodos.length > 0) {
+      parts.push(
+        `${openTodos.length} open follow-up${openTodos.length === 1 ? "" : "s"}`,
+      );
+    }
+    if (meetings.length > 0) {
+      parts.push(
+        `${meetings.length} meeting${meetings.length === 1 ? "" : "s"}`,
+      );
+    }
+    if (notes.length > 0) {
+      parts.push(`${notes.length} note${notes.length === 1 ? "" : "s"}`);
+    }
+    return parts.length > 0 ? parts.join(" · ") : "Tap the mic to capture";
+  }, [openTodos.length, meetings.length, notes.length]);
+
+  const holdHint = useMemo(() => {
+    if (session.sessionVisible) return null;
+    if (!isHoldingMic) return null;
+    if (activeTemplate) {
+      return `${activeTemplate.label} — starting cloud meeting…`;
+    }
+    if (holdCloudHint) {
+      return "Cloud session — almost there. Keep holding…";
+    }
+    return "On-device if you release now. Hold for cloud.";
+  }, [isHoldingMic, holdCloudHint, activeTemplate, session.sessionVisible]);
+
+  const onHoldChange = useCallback((holding: boolean, cloudHint: boolean) => {
+    setIsHoldingMic(holding);
+    setHoldCloudHint(cloudHint);
+  }, []);
+
+  const goDevice = useCallback(() => {
+    if (activeTemplate) {
+      session.startMeeting(activeTemplate, "cloud");
+      return;
+    }
+    session.startQuickListen("browser");
+  }, [activeTemplate, session]);
+
+  const goCloud = useCallback(() => {
+    session.startMeeting(activeTemplate, "cloud");
+  }, [activeTemplate, session]);
+
+  const handleLineAction = useCallback(
+    (chunk: TranscriptChunk, action: LineAction) => {
+      if (action === "highlight") session.highlightChunk(chunk);
+      else if (action === "todo") void session.addTodoFromChunk(chunk);
+      else void session.highlightAndTodoFromChunk(chunk);
+    },
+    [session],
+  );
+
+  const recordingTitle = session.inMeeting
+    ? session.meetingTitle || "Meeting"
+    : activeTemplate?.label ?? "Quick capture";
+
+  const recordingSubtitle = session.inMeeting
+    ? session.transcriptionMode === "cloud"
+      ? "Cloud meeting · saves to Library"
+      : "On-device meeting"
+    : session.transcriptionMode === "cloud"
+      ? "Cloud capture"
+      : "On-device capture";
+
+  if (!session.hydrated) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+      </div>
+    );
+  }
+
+  if (!session.supported) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+        <AlertCircle className="h-10 w-10 text-amber-500" />
+        <h1 className="text-lg font-semibold">Speech recognition unavailable</h1>
+        <p className="max-w-sm text-sm text-zinc-600 dark:text-zinc-400">
+          Use Chrome on desktop, the {APP_NAME} Android app, or enable cloud STT in
+          Settings.
+        </p>
+        <Link
+          href="/settings/"
+          className="text-sm font-medium text-violet-600 underline dark:text-violet-400"
         >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </Button>
-      </header>
+          Open Settings
+        </Link>
+      </div>
+    );
+  }
 
-      <EmailVerificationBanner />
-
-      <div className="grid grid-cols-2 gap-3">
-        {quickActions.map(({ href, label, icon: Icon, desc }) => (
-          <Link key={label} href={href}>
-            <Card className="h-full transition-colors hover:bg-accent/50">
-              <CardHeader className="p-4 pb-2">
-                <Icon className="h-5 w-5 text-muted-foreground" />
-                <CardTitle className="text-base">{label}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <CardDescription>{desc}</CardDescription>
-              </CardContent>
-            </Card>
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center justify-between px-4 pt-2">
+        <Link
+          href="/dashboard/"
+          className="flex shrink-0 items-center"
+          aria-label={`${APP_NAME} home`}
+        >
+          <Image
+            src="/branding/logo.png"
+            alt={APP_NAME}
+            width={96}
+            height={28}
+            unoptimized
+            className="h-7 w-auto object-contain"
+          />
+        </Link>
+        <div className="flex items-center gap-0.5">
+          <HelpHeaderButton />
+          <Link
+            href="/settings/"
+            className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Settings"
+          >
+            <Settings className="h-5 w-5" />
           </Link>
-        ))}
+          <LogoutHeaderButton />
+        </div>
       </div>
 
-      <DailyRecapCard userId={userId} />
+      <div
+        className={
+          session.sessionVisible
+            ? "flex min-h-0 flex-1 flex-col gap-3 px-4 pb-2 pt-2"
+            : "flex flex-1 flex-col items-center justify-center gap-6 px-4 pb-4 pt-2"
+        }
+      >
+        {!session.sessionVisible ? <EmailVerificationBanner /> : null}
 
-      <Link href="/library/">
-        <Card className="transition-colors hover:bg-accent/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Library</CardTitle>
-            <CardDescription>
-              Filter by tag or topic, series follow-ups, export Markdown
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Link>
+        {session.sessionVisible ? (
+          <IpodRecordingDisplay
+            title={recordingTitle}
+            subtitle={recordingSubtitle}
+            chunks={session.chunks}
+            interimText={session.interimText}
+            isListening={session.isListening}
+            isPaused={session.isPaused}
+            transcriptionMode={session.transcriptionMode}
+            capturePhase={
+              session.transcriptionMode === "cloud"
+                ? session.capturePhase
+                : undefined
+            }
+            highlights={session.highlights}
+            lineActionMsg={session.lineActionMsg}
+            saveBusy={session.saveBusy}
+            error={session.error ?? session.saveError}
+            onLineAction={handleLineAction}
+            onDiscard={session.discard}
+            onContinue={session.resume}
+            onSave={() => void session.saveAndClose()}
+          />
+        ) : (
+          <>
+            <IpodDisplay
+              greeting={`Hello, ${displayName}`}
+              subtitle={subtitle}
+              holdHint={holdHint}
+            />
+            <TemplateSelector
+              templates={templates}
+              selectedId={selectedId}
+              onSelect={() => {}}
+            />
+          </>
+        )}
 
-      {openTodos.length > 0 ? (
-        <Link href="/notes/?tab=todos">
-          <Card className="border-emerald-200/80 transition-colors hover:bg-accent/50 dark:border-emerald-900/40">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Open follow-ups</CardTitle>
-                <Badge variant="secondary">{openTodos.length}</Badge>
-              </div>
-              <CardDescription>
-                Action items from meetings and AI — tap to review
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TodoList userId={userId} todos={openTodos.slice(0, 5)} compact />
-            </CardContent>
-          </Card>
-        </Link>
+        {session.captureWarning ? (
+          <p className="max-w-sm text-center text-[11px] text-amber-800 dark:text-amber-200">
+            {session.captureWarning}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="sticky bottom-0 shrink-0 space-y-5 border-t border-border/60 bg-background/95 px-4 pb-[max(1rem,calc(env(safe-area-inset-bottom)+var(--free-tier-bottom-inset,0px)))] pt-4 backdrop-blur-sm">
+        {session.sessionVisible ? (
+          <RecordingMicButton
+            isListening={session.isListening}
+            starting={session.state === "starting"}
+            onPress={() => {
+              if (session.isListening) session.pause();
+              else session.resume();
+            }}
+          />
+        ) : (
+          <>
+            <MicHoldButton
+              onTap={goDevice}
+              onCloudHoldComplete={goCloud}
+              onHoldChange={onHoldChange}
+              cloudTemplateMode={Boolean(activeTemplate)}
+            />
+            <ThumbRemote />
+          </>
+        )}
+      </div>
+
+      {session.savedCapture ? (
+        <PostSaveAiDialog
+          capture={session.savedCapture}
+          userId={userId}
+          onClose={session.dismissSavedCapture}
+        />
       ) : null}
-
-      {recentMeetings.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent meetings</CardTitle>
-            <CardDescription>Meeting room — transcript, appends, follow-ups</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {recentMeetings.map((m) => (
-              <Link
-                key={m.id}
-                href={`/meetings/?id=${m.id}`}
-                className="flex items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/50"
-              >
-                <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{m.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(m.startedAt, "MMM d, HH:mm")}
-                    {m.aiSummary ? " · summarized" : ""}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {dueSoon.length > 0 ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Due soon</CardTitle>
-            <Badge variant="secondary">{dueSoon.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <TodoList userId={userId} todos={dueSoon} compact />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent notes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {recentNotes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No notes yet. Save a transcript from Listen mode.
-            </p>
-          ) : (
-            recentNotes.map((note) => (
-              <Link
-                key={note.id}
-                href={`/notes/?id=${note.id}`}
-                className="block rounded-lg border border-border p-3 transition-colors hover:bg-accent/50"
-              >
-                <p className="font-medium">{note.title}</p>
-                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                  {note.body}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {format(note.updatedAt, "MMM d, yyyy")}
-                </p>
-              </Link>
-            ))
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -13,8 +13,9 @@ distributionUrl=.../gradle-8.11.1-all.zip
 If Android Studio or the Java extension still reports **8.9**:
 
 1. **Use the wrapper** — Android Studio → **Settings** → **Build, Execution, Deployment** → **Build Tools** → **Gradle** → **Gradle JDK**: JDK 21 → **Use Gradle from**: **Gradle wrapper** (not a fixed “Gradle 8.9” install).
-2. **Sync** — **File** → **Sync Project with Gradle Files** (elephant icon).
-3. **Terminal check** (from `android/`):
+2. **Cursor / VS Code** — User Settings → search `java.import.gradle.home` → **clear** it if set (a global Gradle 8.9 overrides the wrapper). Workspace settings in `.vscode/settings.json` and `android/.vscode/settings.json` already prefer **8.11.1** + wrapper. Then **Command Palette** → `Java: Clean Java Language Server Workspace` → Reload Window.
+3. **Sync** — **File** → **Sync Project with Gradle Files** (elephant icon).
+4. **Terminal check** (from `android/`):
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot"
@@ -24,7 +25,7 @@ cd android
 
 You should see `Gradle 8.11.1`.
 
-4. **“Not on classpath” Java warnings** in VS Code/Cursor usually clear after a successful Gradle sync (they are IDE noise until the project configures).
+5. **“Not on classpath” Java warnings** in VS Code/Cursor usually clear after a successful Gradle sync (they are IDE noise until the project configures).
 
 ---
 

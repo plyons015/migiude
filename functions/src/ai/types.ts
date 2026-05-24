@@ -2,9 +2,8 @@ export type AiTask =
   | "summarize"
   | "extract_todos"
   | "mind_map"
-  | "suggest_tags"
+  | "meeting_insights"
   | "daily_recap"
-  | "detect_commitments"
   | "suggest_topics"
   | "meeting_minutes"
   | "generic";

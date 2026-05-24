@@ -1,8 +1,6 @@
 "use client";
 
 import { AiActionsPanel } from "@/components/listen/ai-actions-panel";
-import { CommitmentsPanel } from "@/components/listen/commitments-panel";
-import { EndMeetingTags } from "@/components/listen/end-meeting-tags";
 import { StartMeetingPanel } from "@/components/listen/start-meeting-panel";
 import { HighlightsList } from "@/components/listen/highlights-list";
 import { RollingSummaryPanel } from "@/components/listen/rolling-summary-panel";
@@ -18,16 +16,12 @@ import { useWakeLock } from "@/hooks/use-wake-lock";
 import { copyToClipboard } from "@/lib/clipboard";
 import { createId } from "@/lib/data/ids";
 import { aiService } from "@/lib/ai/ai-service";
-import { parseTagsFromAi } from "@/lib/ai/parse-tags";
 import { createMeetingId } from "@/lib/data/meetings-store";
 import { saveNote } from "@/lib/data/notes-store";
 import { saveTodo } from "@/lib/data/todos-store";
 import type { TranscriptHighlight } from "@/lib/data/types";
-import {
-  startRecordingForeground,
-  stopRecordingForeground,
-} from "@/lib/capacitor/recording-foreground";
 import { getCapacitorPlatform, isAndroid } from "@/lib/capacitor/platform";
+import { APP_NAME } from "@/lib/branding/app-name";
 import { showImmediateLocalNotification } from "@/lib/notifications/native-reminders";
 import { isFirebaseConfigured } from "@/lib/env/client";
 import {
@@ -40,20 +34,18 @@ import { getSeriesForTag } from "@/lib/library/queries";
 import { finalizeMeeting } from "@/lib/meetings/finalize-meeting";
 import {
   applyTemplateTitle,
-  type MeetingTemplate,
+  buildTemplateMinutesScaffold,
 } from "@/lib/meetings/templates";
+import type { MeetingTemplate } from "@/lib/meetings/template-schema";
+import { resolveMeetingTemplate } from "@/lib/meetings/custom-templates-store";
 import {
   clearListenSession,
   loadListenSession,
   saveListenSession,
 } from "@/lib/listen/session-persist";
-import { mightContainCommitment } from "@/lib/listen/commitment-heuristics";
-import {
-  detectAndSaveCommitments,
-  formatCommitmentToast,
-  type DetectedCommitment,
-} from "@/lib/listen/process-commitments";
+import { parseListenLaunchParams } from "@/lib/listen/launch-url";
 import { runVoiceCommand } from "@/lib/listen/voice-commands";
+import type { TranscriptionMode } from "@/lib/speech/types";
 import { format } from "date-fns";
 import {
   AlertCircle,
@@ -69,9 +61,12 @@ import {
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export function ListenMode() {
+  const searchParams = useSearchParams();
+  const launchHandledRef = useRef(false);
   const [hydrated, setHydrated] = useState(false);
   const [pendingSession, setPendingSession] = useState(
     () => loadListenSession(),
@@ -91,36 +86,21 @@ export function ListenMode() {
   const [endResult, setEndResult] = useState<{
     meetingId: string;
     noteId: string;
-    todosCreated: number;
   } | null>(null);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
-  const [endPhase, setEndPhase] = useState<"idle" | "tags">("idle");
-  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
-  const [tagsLoading, setTagsLoading] = useState(false);
   const [rollingSummaries, setRollingSummaries] = useState<
     { at: number; text: string }[]
   >([]);
   const [rollingBusy, setRollingBusy] = useState(false);
   const [commandMsg, setCommandMsg] = useState<string | null>(null);
-  const [detectedCommitments, setDetectedCommitments] = useState<
-    DetectedCommitment[]
-  >([]);
-
   const lastCmdChunkId = useRef<string | null>(null);
-  const processedCommitmentChunks = useRef<Set<string>>(new Set());
-  const commitmentDebounce = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const lastRollingAt = useRef<number>(0);
   const meetingStartRef = useRef<number>(0);
 
   const {
-    autoAiOnMeetingEnd,
     rollingSummary,
     rollingSummaryMinutes,
-    smartTagsOnEnd,
     voiceCommands,
-    commitmentAwareness,
     localOnly,
   } = useAppSettings();
   const { provider } = useAiSettings();
@@ -163,6 +143,8 @@ export function ListenMode() {
     transcriptionMode,
     meetingTranscriptionMode,
     quickTranscriptionMode,
+    captureWarning,
+    capturePhase,
   } = useTranscription(inMeeting ? "meeting" : "quick");
 
   const { supported: wakeLockSupported } = useWakeLock(isListening);
@@ -172,21 +154,6 @@ export function ListenMode() {
   const platform = getCapacitorPlatform();
   const transcriptText = fullTranscript;
   const hasTranscript = transcriptText.trim().length > 0;
-
-  // Foreground service after mic is active (not during "starting"). Small delay avoids
-  // racing Web Speech permission with startForegroundService on some devices.
-  useEffect(() => {
-    if (!isAndroid()) return;
-    if (state !== "listening") {
-      void stopRecordingForeground();
-      return;
-    }
-    const id = window.setTimeout(() => void startRecordingForeground(), 250);
-    return () => {
-      window.clearTimeout(id);
-      void stopRecordingForeground();
-    };
-  }, [state]);
 
   const seriesHint = useMemo(() => {
     if (!uid || meetings.length === 0) return null;
@@ -229,13 +196,14 @@ export function ListenMode() {
     setSaveMsg(null);
     setEndResult(null);
     setPendingSession(null);
-    setDetectedCommitments([]);
-    processedCommitmentChunks.current.clear();
     clearListenSession();
   }, [clearTranscript]);
 
   const handleStartMeeting = useCallback(
-    (template: MeetingTemplate | null) => {
+    (
+      template: MeetingTemplate | null,
+      opts?: { mode?: TranscriptionMode },
+    ) => {
     setEndResult(null);
     setSaveMsg(null);
     const id = createMeetingId();
@@ -258,16 +226,32 @@ export function ListenMode() {
     meetingStartRef.current = draft.startedAt;
     lastRollingAt.current = Date.now();
     setRollingSummaries([]);
-    setDetectedCommitments([]);
-    processedCommitmentChunks.current.clear();
-    setEndPhase("idle");
     clearTranscript();
     setHighlights([]);
     clearListenSession();
-    void startListening({ context: "meeting" });
+    void startListening({ context: "meeting", mode: opts?.mode });
   },
     [clearTranscript, startListening],
   );
+
+  useEffect(() => {
+    if (!hydrated || !supported || launchHandledRef.current) return;
+    const launch = parseListenLaunchParams(searchParams);
+    if (!launch.autostart || !launch.mode) return;
+    launchHandledRef.current = true;
+    const mode: TranscriptionMode =
+      launch.mode === "cloud" ? "cloud" : "browser";
+    if (launch.meeting) {
+      const template = launch.templateId
+        ? resolveMeetingTemplate(launch.templateId, uid) ?? null
+        : null;
+      const meetingMode: TranscriptionMode =
+        template?.preferCloud || launch.mode === "cloud" ? "cloud" : "browser";
+      handleStartMeeting(template, { mode: meetingMode });
+      return;
+    }
+    void startListening({ context: "quick", mode });
+  }, [hydrated, supported, searchParams, handleStartMeeting, startListening, uid]);
 
   const handleCancelMeeting = useCallback(() => {
     if (isListening) stopListening();
@@ -290,13 +274,10 @@ export function ListenMode() {
           tags: tags.length ? tags : undefined,
           highlights: highlights.length ? highlights : undefined,
           agenda: activeMeeting.agenda,
-          autoAi: autoAiOnMeetingEnd,
-          provider,
+          templateId: activeMeeting.templateId,
         });
         clearActiveMeeting();
         setActiveMeeting(null);
-        setEndPhase("idle");
-        setSuggestedTags([]);
         handleClearAll();
         setMeetingTitle("");
         setMeetingTags([]);
@@ -304,13 +285,10 @@ export function ListenMode() {
         setEndResult({
           meetingId: result.meeting.id,
           noteId: result.noteId,
-          todosCreated: result.todosCreated,
         });
         void showImmediateLocalNotification(
           "Meeting saved",
-          result.aiSummary
-            ? "Summary ready — open the meeting room"
-            : "Transcript saved to your library",
+          "Transcript saved — use AI actions or the meeting room for summary",
         );
       } catch (e) {
         setSaveMsg(e instanceof Error ? e.message : "Could not end meeting.");
@@ -325,8 +303,6 @@ export function ListenMode() {
       meetingTitle,
       transcriptText,
       highlights,
-      autoAiOnMeetingEnd,
-      provider,
       handleClearAll,
     ],
   );
@@ -336,51 +312,14 @@ export function ListenMode() {
     setSaveMsg(null);
     setEndResult(null);
     if (isListening) stopListening();
-
-    const runTagsThenSave = async () => {
-      if (
-        smartTagsOnEnd &&
-        isFirebaseConfigured() &&
-        transcriptText.trim().length > 20
-      ) {
-        setEndPhase("tags");
-        setTagsLoading(true);
-        setSuggestedTags([]);
-        try {
-          await ensureSignedIn();
-          const out = await aiService.suggestTags(transcriptText, provider);
-          setSuggestedTags(parseTagsFromAi(out.result));
-        } catch {
-          setSuggestedTags([]);
-        } finally {
-          setTagsLoading(false);
-        }
-        return;
-      }
-      void doFinalizeMeeting(meetingTags);
-    };
-
-    void runTagsThenSave();
+    void doFinalizeMeeting(meetingTags);
   }, [
     activeMeeting,
     isListening,
     stopListening,
-    smartTagsOnEnd,
-    transcriptText,
-    ensureSignedIn,
-    provider,
     meetingTags,
     doFinalizeMeeting,
   ]);
-
-  const toggleSuggestedTag = useCallback((tag: string) => {
-    const lower = tag.toLowerCase();
-    setMeetingTags((prev) =>
-      prev.some((t) => t.toLowerCase() === lower)
-        ? prev.filter((t) => t.toLowerCase() !== lower)
-        : [...prev, tag],
-    );
-  }, []);
 
   const handleCopyTranscript = useCallback(async () => {
     const ok = await copyToClipboard(transcriptText);
@@ -406,53 +345,6 @@ export function ListenMode() {
     ]);
     setHighlightNote("");
   }, [chunks, interimText, transcriptText, highlightNote]);
-
-  useEffect(() => {
-    if (!commitmentAwareness || !isFirebaseConfigured() || chunks.length === 0) {
-      return;
-    }
-
-    const last = chunks[chunks.length - 1];
-    if (processedCommitmentChunks.current.has(last.id)) return;
-    if (!mightContainCommitment(last.text)) return;
-
-    if (commitmentDebounce.current) clearTimeout(commitmentDebounce.current);
-    commitmentDebounce.current = setTimeout(() => {
-      processedCommitmentChunks.current.add(last.id);
-      const context = chunks
-        .slice(-3)
-        .map((c) => c.text)
-        .join("\n");
-
-      void (async () => {
-        try {
-          const userId = uid ?? (await ensureSignedIn()).uid;
-          const saved = await detectAndSaveCommitments(userId, context, {
-            provider,
-            meetingId: activeMeeting?.id,
-          });
-          if (saved.length > 0) {
-            setDetectedCommitments((prev) => [...saved, ...prev].slice(0, 20));
-            setCommandMsg(formatCommitmentToast(saved));
-            setTimeout(() => setCommandMsg(null), 5000);
-          }
-        } catch {
-          /* AI unavailable — skip silently */
-        }
-      })();
-    }, 1500);
-
-    return () => {
-      if (commitmentDebounce.current) clearTimeout(commitmentDebounce.current);
-    };
-  }, [
-    chunks,
-    commitmentAwareness,
-    uid,
-    ensureSignedIn,
-    provider,
-    activeMeeting?.id,
-  ]);
 
   useEffect(() => {
     if (!voiceCommands || chunks.length === 0) return;
@@ -578,7 +470,7 @@ export function ListenMode() {
         <p className="max-w-sm text-sm text-zinc-600 dark:text-zinc-400">
           {cloudMode
             ? "Sign in, configure Firebase, deploy transcribeAudio, and allow microphone access. Or switch to Browser speech in Settings."
-            : `Web Speech API is not supported here. Use Chrome on desktop, the Migiude Android app (${platform}), or enable Meeting mode (cloud STT) in Settings.`}
+            : `Web Speech API is not supported here. Use Chrome on desktop, the ${APP_NAME} Android app (${platform}), or enable Meeting mode (cloud STT) in Settings.`}
         </p>
         {cloudMode ? (
           <Link
@@ -657,20 +549,7 @@ export function ListenMode() {
         </p>
       ) : null}
 
-      {inMeeting && endPhase === "tags" ? (
-        <EndMeetingTags
-          loading={tagsLoading}
-          suggested={suggestedTags}
-          tags={meetingTags}
-          onChangeTags={setMeetingTags}
-          onToggleSuggested={toggleSuggestedTag}
-          onConfirm={() => void doFinalizeMeeting(meetingTags)}
-          onSkip={() => void doFinalizeMeeting(meetingTags)}
-          busy={endBusy}
-        />
-      ) : null}
-
-      {inMeeting && endPhase === "idle" ? (
+      {inMeeting ? (
         <div className="shrink-0 space-y-2 rounded-xl border border-violet-200 bg-violet-50/50 p-3 dark:border-violet-900/50 dark:bg-violet-950/20">
           <input
             type="text"
@@ -703,24 +582,7 @@ export function ListenMode() {
               Cancel
             </button>
           </div>
-          {autoAiOnMeetingEnd ? (
-            <p className="text-[11px] text-violet-800 dark:text-violet-200">
-              Auto AI on end: summary + todos (Settings)
-            </p>
-          ) : null}
-          {smartTagsOnEnd ? (
-            <p className="text-[11px] text-violet-700 dark:text-violet-300">
-              Smart tags suggested when you end
-            </p>
-          ) : null}
         </div>
-      ) : null}
-
-      {commitmentAwareness ? (
-        <p className="text-center text-[11px] text-zinc-500">
-          Commitment awareness: phrases like &quot;I will… this afternoon&quot;
-          become reminders with due times.
-        </p>
       ) : null}
 
       {voiceCommands && inMeeting ? (
@@ -740,9 +602,6 @@ export function ListenMode() {
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30">
           <p className="font-medium text-emerald-900 dark:text-emerald-100">
             Meeting saved
-            {endResult.todosCreated > 0
-              ? ` · ${endResult.todosCreated} todo(s)`
-              : ""}
           </p>
           <div className="mt-2 flex flex-wrap gap-3 text-xs">
             <Link
@@ -796,16 +655,30 @@ export function ListenMode() {
         </div>
       ) : null}
 
+      {captureWarning ? (
+        <p className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+          {captureWarning}
+        </p>
+      ) : null}
+
+      {isListening && isAndroid() ? (
+        <p className="shrink-0 text-center text-[11px] text-zinc-500">
+          Other apps&apos; audio is paused while the mic is on. Use headphones if
+          you still hear bleed from the speaker.
+        </p>
+      ) : null}
+
       <TranscriptPanel
         chunks={chunks}
         interimText={interimText}
         isListening={isListening}
         transcriptionMode={transcriptionMode}
+        capturePhase={
+          transcriptionMode === "cloud" ? capturePhase : undefined
+        }
       />
 
       <RollingSummaryPanel summaries={rollingSummaries} busy={rollingBusy} />
-
-      <CommitmentsPanel items={detectedCommitments} />
 
       <HighlightsList highlights={highlights} />
 
@@ -830,7 +703,11 @@ export function ListenMode() {
         </div>
       ) : null}
 
-      <AiActionsPanel transcript={transcriptText} disabled={isListening} />
+      <AiActionsPanel
+        transcript={transcriptText}
+        disabled={isListening}
+        templateId={activeMeeting?.templateId}
+      />
 
       <div className="shrink-0 space-y-3">
         <div className="flex items-center justify-center gap-4">

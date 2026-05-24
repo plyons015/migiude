@@ -99,6 +99,7 @@ public class RecordingForegroundService extends Service {
             Log.d(TAG, "ServiceCompat.startForeground type=" + serviceType);
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, serviceType);
             inForeground = true;
+            RecordingAudioSession.begin(this);
             return true;
         } catch (Exception e) {
             Log.e(TAG, "startForeground failed", e);
@@ -108,6 +109,7 @@ public class RecordingForegroundService extends Service {
 
     private void exitForeground() {
         if (!inForeground) return;
+        RecordingAudioSession.end();
         try {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         } catch (Exception e) {
@@ -127,8 +129,8 @@ public class RecordingForegroundService extends Service {
         );
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Migiude is listening")
-            .setContentText("Meeting capture in progress — return to the app to stop")
+            .setContentTitle("Ude is listening")
+            .setContentText("Mic active — other apps' audio is paused. Return here to stop.")
             .setSmallIcon(R.drawable.ic_stat_recording)
             .setContentIntent(pending)
             .setOngoing(true)

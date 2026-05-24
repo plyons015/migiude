@@ -4,6 +4,8 @@ const CONFIG_PATH = "adminConfig/config";
 
 export type AdminConfigDoc = {
   adminEmails?: string[];
+  /** Optional comma-separated IPs stored in Firestore (merged with ADMIN_IP_ALLOWLIST env). */
+  adminIpAllowlist?: string[];
 };
 
 /** Comma-separated emails from secret/env (e.g. you@company.com,ops@company.com). */
@@ -19,13 +21,21 @@ export function getAdminEmailsFromEnv(): string[] {
   return parseEmailList(raw);
 }
 
+export async function getAdminConfig(): Promise<AdminConfigDoc> {
+  try {
+    const snap = await getFirestore().doc(CONFIG_PATH).get();
+    return (snap.data() as AdminConfigDoc | undefined) ?? {};
+  } catch {
+    return {};
+  }
+}
+
 export async function getAdminEmails(): Promise<string[]> {
   const fromEnv = getAdminEmailsFromEnv();
   try {
-    const snap = await getFirestore().doc(CONFIG_PATH).get();
-    const data = snap.data() as AdminConfigDoc | undefined;
+    const data = await getAdminConfig();
     const fromFirestore =
-      data?.adminEmails
+      data.adminEmails
         ?.map((e) => e.trim().toLowerCase())
         .filter(Boolean) ?? [];
     const merged = new Set([...fromEnv, ...fromFirestore]);
@@ -33,4 +43,16 @@ export async function getAdminEmails(): Promise<string[]> {
   } catch {
     return fromEnv;
   }
+}
+
+export async function setAdminConfig(patch: AdminConfigDoc): Promise<void> {
+  await getFirestore()
+    .doc(CONFIG_PATH)
+    .set(
+      {
+        ...patch,
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    );
 }

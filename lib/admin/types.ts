@@ -14,15 +14,35 @@ export type AdminDashboard = {
       cloudSttChunks: number;
       aiCalls: number;
     }>;
+    overQuotaFree: number;
   };
   billing: {
     stripeConfigured: boolean;
     mrr: number | null;
     activeSubscriptions: number | null;
+    pastDueSubscriptions: number | null;
+    planCounts: { free: number; pro: number; power: number } | null;
+    recentEvents: Array<{
+      id: string;
+      type: string;
+      createdAt: number;
+      uid: string | null;
+      email: string | null;
+      plan: string | null;
+    }>;
     message: string;
   };
   flags: { open: number };
-  support: { open: number };
+  support: {
+    open: number;
+    recentOpenTickets: Array<{
+      id: string;
+      uid: string;
+      email: string | null;
+      messagePreview: string;
+      createdAt: unknown;
+    }>;
+  };
 };
 
 export type AdminUserRow = {
@@ -36,6 +56,12 @@ export type AdminUserRow = {
   suspended: boolean;
   platform: string | null;
   usageToday: { aiCalls: number; cloudSttChunks: number };
+  usageMonth: {
+    aiCalls: number;
+    cloudSttChunks: number;
+    cloudSttMinutes: number;
+  };
+  overQuota: boolean;
 };
 
 export type AdminFlag = {
@@ -67,6 +93,17 @@ export type AdminUserDetail = {
     cloudSttChunks: number;
     meetings: number;
   }>;
+  usageMonth: {
+    month: string;
+    aiCalls: number;
+    cloudSttChunks: number;
+    cloudSttMinutes: number;
+    limits: {
+      aiCallsPerMonth: number | null;
+      cloudSttMinutesPerMonth: number | null;
+    };
+    overQuota: boolean;
+  };
 };
 
 export type AdminSupportTicket = {
@@ -78,4 +115,52 @@ export type AdminSupportTicket = {
   adminReply: string | null;
   createdAt: unknown;
   updatedAt: unknown;
+};
+
+export type AdminAuditEntry = {
+  id: string;
+  actorUid: string;
+  actorEmail: string;
+  action: string;
+  targetUid?: string | null;
+  targetEmail?: string | null;
+  reasonCode?: string;
+  reasonText?: string;
+  referenceId?: string;
+  createdAtMs?: number;
+  snapshot?: Record<string, unknown>;
+};
+
+export type RetentionPoint = {
+  day: string;
+  signups: number;
+  activeUsers: number;
+};
+
+export type AdminConfigResponse = {
+  adminEmails: string[];
+  envAdminEmails: string[];
+  adminIpAllowlist: string[];
+  envIpAllowlist: string;
+};
+
+export type AdminOrg = {
+  id: string;
+  name: string;
+  plan: string;
+  seatLimit: number;
+  memberCount: number;
+  createdAtMs?: number;
+};
+
+export type AdminClientError = {
+  id: string;
+  uid?: string;
+  email?: string | null;
+  message: string;
+  stack?: string | null;
+  platform?: string | null;
+  appVersion?: string | null;
+  route?: string | null;
+  createdAtMs?: number;
 };

@@ -1,12 +1,16 @@
 "use client";
 
-import { AuthGate } from "@/components/auth-gate";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
+import { useAuthUser } from "@/hooks/use-auth-user";
 
 export default function DashboardPage() {
+  const { uid } = useAuthUser();
+
+  if (!uid) return null;
+
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <AuthGate>{(uid) => <DashboardView userId={uid} />}</AuthGate>
+      <DashboardView userId={uid} />
     </main>
   );
 }

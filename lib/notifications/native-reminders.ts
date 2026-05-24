@@ -1,4 +1,5 @@
 import { LocalNotifications } from "@capacitor/local-notifications";
+import { APP_NAME } from "@/lib/branding/app-name";
 import { isNativePlatform } from "@/lib/capacitor/platform";
 import type { TodoRecord } from "@/lib/data/types";
 import { todoStatusOf } from "@/lib/data/todos-store";
@@ -52,7 +53,7 @@ export async function scheduleTodoLocalNotification(
       notifications: [
         {
           id: todoNotificationId(todo.id),
-          title: "Migiude reminder",
+          title: `${APP_NAME} reminder`,
           body: todo.text,
           channelId: "migiude_reminders",
           schedule: { at, allowWhileIdle: true },

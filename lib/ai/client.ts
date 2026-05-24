@@ -105,6 +105,8 @@ function fallbackForFunctionsCode(code: string): string {
   switch (code) {
     case "functions/unauthenticated":
       return "Sign in required. Tap “Sign in to use AI” on Listen, and enable Anonymous auth in Firebase Console.";
+    case "functions/resource-exhausted":
+      return "You've reached your plan limit for this month. On-device transcription still works on Free.";
     case "functions/failed-precondition":
       return "AI provider blocked the request (billing, API key, or quota). For Gemini: add credits at ai.google.dev / AI Studio. For Grok: add credits at console.x.ai.";
     case "functions/deadline-exceeded":

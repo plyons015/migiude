@@ -1,14 +1,18 @@
-import { ListenMode } from "@/components/listen/listen-mode";
+"use client";
 
-export const metadata = {
-  title: "Listen — Migiude",
-  description: "Live voice transcription",
-};
+import { hardReplace } from "@/lib/navigation/hard-navigate";
+import { useEffect, useRef } from "react";
 
-export default function ListenPage() {
-  return (
-    <main className="flex min-h-0 flex-1 flex-col">
-      <ListenMode />
-    </main>
-  );
+/** Legacy /listen URLs → dashboard (capture lives on home now). */
+export default function ListenRedirectPage() {
+  const redirected = useRef(false);
+
+  useEffect(() => {
+    if (redirected.current) return;
+    redirected.current = true;
+    const search = window.location.search;
+    hardReplace(`/dashboard${search}`);
+  }, []);
+
+  return null;
 }

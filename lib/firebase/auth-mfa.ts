@@ -12,6 +12,7 @@ import {
   type User,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { APP_NAME } from "@/lib/branding/app-name";
 
 export type MfaFactorSummary = {
   uid: string;
@@ -54,7 +55,7 @@ export async function startTotpEnrollment(
   const totpSecret = await TotpMultiFactorGenerator.generateSecret(session);
   const qrCodeUrl = totpSecret.generateQrCodeUrl(
     user.email ?? user.uid,
-    "Migiude",
+    APP_NAME,
   );
   return {
     secretKey: totpSecret.secretKey,

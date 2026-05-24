@@ -6,13 +6,10 @@ import {
   getThemePreference,
   areVoiceCommandsEnabled,
   getRollingSummaryMinutes,
-  isAutoAiOnMeetingEnd,
-  isCommitmentAwarenessEnabled,
   getMeetingTranscriptionMode,
   getQuickTranscriptionMode,
   isLocalOnlyMode,
   isRollingSummaryEnabled,
-  isSmartTagsOnEnd,
   subscribeSettings,
   type SpeechLanguage,
   type ThemePreference,
@@ -33,18 +30,12 @@ export function useAppSettings() {
   const localOnly = useSettingsSnapshot(isLocalOnlyMode, false);
   const notifications = useSettingsSnapshot(areNotificationsEnabled, true);
   const theme = useSettingsSnapshot(getThemePreference, "system");
-  const autoAiOnMeetingEnd = useSettingsSnapshot(isAutoAiOnMeetingEnd, true);
   const rollingSummary = useSettingsSnapshot(isRollingSummaryEnabled, false);
   const rollingSummaryMinutes = useSettingsSnapshot(
     getRollingSummaryMinutes,
     5,
   );
-  const smartTagsOnEnd = useSettingsSnapshot(isSmartTagsOnEnd, true);
   const voiceCommands = useSettingsSnapshot(areVoiceCommandsEnabled, true);
-  const commitmentAwareness = useSettingsSnapshot(
-    isCommitmentAwarenessEnabled,
-    true,
-  );
   const meetingTranscriptionMode = useSettingsSnapshot(
     getMeetingTranscriptionMode,
     "cloud" as TranscriptionMode,
@@ -59,12 +50,9 @@ export function useAppSettings() {
     localOnly,
     notifications,
     theme: theme as ThemePreference,
-    autoAiOnMeetingEnd,
     rollingSummary,
     rollingSummaryMinutes,
-    smartTagsOnEnd,
     voiceCommands,
-    commitmentAwareness,
     meetingTranscriptionMode:
       meetingTranscriptionMode as TranscriptionMode,
     quickTranscriptionMode: quickTranscriptionMode as TranscriptionMode,

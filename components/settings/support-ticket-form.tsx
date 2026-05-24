@@ -34,7 +34,7 @@ export function SupportTicketForm() {
       );
       setMessage("");
       setFeedback(
-        `Message sent (ticket ${ticketId.slice(0, 8)}…). We’ll follow up by email when possible.`,
+        `Message sent (ticket ${ticketId.slice(0, 8)}…). We’ll reply by email when your ticket is resolved.`,
       );
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : "Could not send message.");

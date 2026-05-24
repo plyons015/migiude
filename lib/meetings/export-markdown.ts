@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/branding/app-name";
 import { buildTranscriptFromSegments } from "@/lib/meetings/parse-transcript-segments";
 import { todoStatusOf } from "@/lib/data/todos-store";
 import type {
@@ -106,7 +107,7 @@ export function buildMeetingMarkdownExport(
   }
 
   lines.push("---");
-  lines.push(`_Exported from Migiude · ${format(Date.now(), "MMM d, yyyy HH:mm")}_`);
+  lines.push(`_Exported from ${APP_NAME} · ${format(Date.now(), "MMM d, yyyy HH:mm")}_`);
 
   return lines.join("\n");
 }

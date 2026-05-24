@@ -9,6 +9,8 @@ export const transcribeInputSchema = z.object({
   audioBase64: z.string().min(1),
   mimeType: z.string().default("audio/webm"),
   lang: z.string().default("en-US"),
+  /** Decoded speech duration sent to STT (ms). Used for usage metering. */
+  audioDurationMs: z.number().int().min(0).max(120_000).optional(),
 });
 
 export const transcribeOutputSchema = z.object({

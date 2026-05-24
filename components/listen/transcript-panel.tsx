@@ -1,5 +1,6 @@
 "use client";
 
+import type { CloudSttUiPhase } from "@/hooks/use-cloud-transcription";
 import type { TranscriptionMode, TranscriptChunk } from "@/lib/speech/types";
 import { useEffect, useRef } from "react";
 
@@ -10,11 +11,29 @@ const SPEAKER_COLORS = [
   "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200",
 ];
 
+function cloudStatusLine(
+  isListening: boolean,
+  capturePhase?: CloudSttUiPhase,
+): string {
+  if (!isListening) return "Paused";
+  switch (capturePhase) {
+    case "capturing":
+      return "Capturing speech…";
+    case "transcribing":
+      return "Transcribing…";
+    case "waiting":
+      return "Listening for speech…";
+    default:
+      return "Listening…";
+  }
+}
+
 type TranscriptPanelProps = {
   chunks: TranscriptChunk[];
   interimText: string;
   isListening: boolean;
   transcriptionMode?: TranscriptionMode;
+  capturePhase?: CloudSttUiPhase;
 };
 
 export function TranscriptPanel({
@@ -22,6 +41,7 @@ export function TranscriptPanel({
   interimText,
   isListening,
   transcriptionMode = "browser",
+  capturePhase,
 }: TranscriptPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const interim = interimText.trim();
@@ -43,10 +63,9 @@ export function TranscriptPanel({
           Transcript
         </h2>
         <p className="text-xs text-zinc-500">
-          {isListening ? "Listening…" : "Paused"}
           {cloud
-            ? " — cloud STT with speaker labels (~8s delay)"
-            : " — text only, no audio stored"}
+            ? `${cloudStatusLine(isListening, capturePhase)} — cloud STT, speaker labels`
+            : `${isListening ? "Listening…" : "Paused"} — on-device speech, no upload`}
         </p>
       </div>
 
@@ -54,7 +73,7 @@ export function TranscriptPanel({
         {!hasContent ? (
           <p className="text-sm text-zinc-500">
             {cloud
-              ? "Tap the microphone. Audio is sent in short chunks for transcription; lines appear with speaker labels."
+              ? "Tap the microphone and speak clearly. A line appears after each pause."
               : "Tap the microphone to start. Your speech appears here as text."}
           </p>
         ) : (

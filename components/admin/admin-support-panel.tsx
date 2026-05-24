@@ -26,11 +26,18 @@ import { Loader2, MessageCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 type Props = {
+  focusTicketId?: string | null;
   onTicketResolved?: () => void;
+  onViewUser?: (uid: string) => void;
 };
 
-export function AdminSupportPanel({ onTicketResolved }: Props) {
+export function AdminSupportPanel({
+  focusTicketId,
+  onTicketResolved,
+  onViewUser,
+}: Props) {
   const [filter, setFilter] = useState<"open" | "resolved" | "all">("open");
+  const [search, setSearch] = useState("");
   const [tickets, setTickets] = useState<AdminSupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +60,23 @@ export function AdminSupportPanel({ onTicketResolved }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const filteredTickets = tickets.filter((t) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      t.message.toLowerCase().includes(q) ||
+      (t.email?.toLowerCase().includes(q) ?? false) ||
+      t.uid.toLowerCase().includes(q) ||
+      t.id.toLowerCase().includes(q)
+    );
+  });
+
+  useEffect(() => {
+    if (!focusTicketId || loading) return;
+    const el = document.getElementById(`ticket-${focusTicketId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusTicketId, loading, filteredTickets.length]);
 
   const resolveTicket = async (ticket: AdminSupportTicket) => {
     setBusyId(ticket.id);
@@ -93,18 +117,26 @@ export function AdminSupportPanel({ onTicketResolved }: Props) {
           Support inbox
         </CardTitle>
         <CardDescription>
-          Messages submitted from Settings → Contact support.
+          In-app messages from the ? Help button. Replies appear in the user&apos;s
+          Help inbox.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            placeholder="Search message, email, UID…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 min-w-[160px] flex-1 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
+          />
           <Select
             value={filter}
             onValueChange={(v) =>
               setFilter(v as "open" | "resolved" | "all")
             }
           >
-            <SelectTrigger className="h-8 w-[140px]">
+            <SelectTrigger className="h-8 w-[120px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -132,25 +164,43 @@ export function AdminSupportPanel({ onTicketResolved }: Props) {
           <div className="flex justify-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : tickets.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tickets.</p>
+        ) : filteredTickets.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {tickets.length === 0 ? "No tickets." : "No tickets match search."}
+          </p>
         ) : (
           <ul className="space-y-3">
-            {tickets.map((t) => (
+            {filteredTickets.map((t) => (
               <li
                 key={t.id}
-                className="rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700"
+                id={`ticket-${t.id}`}
+                className={`rounded-lg border p-3 text-sm ${
+                  focusTicketId === t.id
+                    ? "border-violet-400 bg-violet-50/50 dark:border-violet-700 dark:bg-violet-950/30"
+                    : "border-zinc-200 dark:border-zinc-700"
+                }`}
               >
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <span className="font-medium">
                       {t.email ?? t.uid.slice(0, 12)}
                     </span>
                     <Badge variant="outline" className="ml-2 text-[10px]">
                       {t.status}
                     </Badge>
+                    {onViewUser ? (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="ml-1 h-auto p-0 text-xs"
+                        onClick={() => onViewUser(t.uid)}
+                      >
+                        View user
+                      </Button>
+                    ) : null}
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {formatFirestoreTimestamp(t.createdAt)}
                   </span>
                 </div>
@@ -163,7 +213,7 @@ export function AdminSupportPanel({ onTicketResolved }: Props) {
                 {t.status === "open" ? (
                   <div className="mt-3 space-y-2">
                     <textarea
-                      placeholder="Optional internal reply note…"
+                      placeholder="Reply (shown in user Help inbox)…"
                       value={replyDraft[t.id] ?? ""}
                       onChange={(e) =>
                         setReplyDraft((prev) => ({
@@ -180,7 +230,7 @@ export function AdminSupportPanel({ onTicketResolved }: Props) {
                       disabled={busyId === t.id}
                       onClick={() => void resolveTicket(t)}
                     >
-                      Mark resolved
+                      Resolve with reply
                     </Button>
                   </div>
                 ) : (

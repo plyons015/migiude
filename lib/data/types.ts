@@ -4,6 +4,8 @@ export type TranscriptHighlight = {
   text: string;
   note?: string;
   createdAt: number;
+  /** Links highlight to a transcript segment in the meeting room. */
+  segmentId?: string;
 };
 
 export type NoteRecord = {
@@ -89,6 +91,8 @@ export type MeetingRecord = {
   topics?: MeetingTopic[];
   /** Pre-meeting agenda (Script tab). */
   agenda?: string;
+  /** Template used when meeting started — drives Library tags & AI report shape. */
+  templateId?: string;
   /** Polished minutes / narrative (Script tab). */
   minutes?: string;
 };

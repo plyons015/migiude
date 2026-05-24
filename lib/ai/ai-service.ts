@@ -14,9 +14,8 @@ const taskLabels: Record<AiTask, string> = {
   summarize: "Summarize",
   extract_todos: "Extract todos",
   mind_map: "Mind map",
-  suggest_tags: "Suggest tags",
+  meeting_insights: "Summary, todos, commitments & mind map",
   daily_recap: "Daily recap",
-  detect_commitments: "Detect commitments",
   suggest_topics: "Suggest topics",
   meeting_minutes: "Meeting minutes",
   generic: "Ask AI",
@@ -69,15 +68,15 @@ export class AiService {
     return this.process({ text, task: "mind_map", provider });
   }
 
-  async ask(text: string, provider?: AiProvider): Promise<AiProcessOutput> {
-    return this.process({ text, task: "generic", provider });
-  }
-
-  async suggestTags(
+  async meetingInsights(
     text: string,
     provider?: AiProvider,
   ): Promise<AiProcessOutput> {
-    return this.process({ text, task: "suggest_tags", provider });
+    return this.process({ text, task: "meeting_insights", provider });
+  }
+
+  async ask(text: string, provider?: AiProvider): Promise<AiProcessOutput> {
+    return this.process({ text, task: "generic", provider });
   }
 
   async dailyRecap(
@@ -85,13 +84,6 @@ export class AiService {
     provider?: AiProvider,
   ): Promise<AiProcessOutput> {
     return this.process({ text, task: "daily_recap", provider });
-  }
-
-  async detectCommitments(
-    text: string,
-    provider?: AiProvider,
-  ): Promise<AiProcessOutput> {
-    return this.process({ text, task: "detect_commitments", provider });
   }
 
   async suggestTopics(

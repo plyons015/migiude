@@ -3,16 +3,52 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { z } from "zod";
 import { assertAdmin } from "./assert-admin";
-import { adminEmailsSecret, bindAdminEmailsEnv } from "./secrets";
+import { adminSecrets, bindAdminEmailsEnv } from "./secrets";
+import { bindStripeEnv } from "../billing/stripe-client";
+import { fetchStripeBillingSummary, isStripeConfigured } from "../billing/summary";
+import { getLaunchPlanConfig } from "../plan/config";
+import {
+  currentMonthKey,
+  isOverMonthlyQuota,
+  readMonthUsage,
+  readMonthUsageWithFallback,
+  type MonthUsage,
+} from "./month-usage";
+import { writeAdminAuditLog } from "./audit";
 import { aggregateTodayUsage } from "./usage";
+import {
+  cloudSttUsageToMinutes,
+  getPlanLimitsForSync,
+} from "./plan-limits";
+import { formatZodError, optionalString } from "./zod-helpers";
 
 const adminCallOptions = {
   invoker: "public" as const,
-  secrets: [adminEmailsSecret],
+  secrets: adminSecrets,
 };
 
-function stripeConfigured(): boolean {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+async function countOverQuotaUsers(): Promise<number> {
+  const config = await getLaunchPlanConfig();
+  const db = getFirestore();
+  const month = currentMonthKey();
+  const snap = await db.collection(`usageMonthly/${month}/users`).get();
+  let count = 0;
+  for (const doc of snap.docs) {
+    const profile = await db.doc(`userProfiles/${doc.id}`).get();
+    const plan = (profile.data()?.plan as string | undefined) ?? "free";
+    const d = doc.data();
+    const usage: MonthUsage = {
+      aiCalls: (d.aiCalls as number) ?? 0,
+      cloudSttChunks: (d.cloudSttChunks as number) ?? 0,
+      cloudSttSeconds: (d.cloudSttSeconds as number) ?? 0,
+      cloudSttMinutes: cloudSttUsageToMinutes({
+        cloudSttChunks: (d.cloudSttChunks as number) ?? 0,
+        cloudSttSeconds: (d.cloudSttSeconds as number) ?? 0,
+      }),
+    };
+    if (isOverMonthlyQuota(plan, usage, config)) count++;
+  }
+  return count;
 }
 
 async function countAllUsers(): Promise<number> {
@@ -46,9 +82,10 @@ export const adminVerify = onCall(adminCallOptions, async (request) => {
 
 export const adminGetDashboard = onCall(adminCallOptions, async (request) => {
     bindAdminEmailsEnv();
+    bindStripeEnv();
     await assertAdmin(request);
     const db = getFirestore();
-    const [totalUsers, activeLast7d, usageToday, openFlags, openSupport] =
+    const [totalUsers, activeLast7d, usageToday, openFlags, openSupport, overQuotaFree] =
       await Promise.all([
         countAllUsers(),
         countActiveProfiles(7),
@@ -66,7 +103,12 @@ export const adminGetDashboard = onCall(adminCallOptions, async (request) => {
           .get()
           .then((s) => s.data().count)
           .catch(() => 0),
+        countOverQuotaUsers().catch(() => 0),
       ]);
+
+    const billingSummary = isStripeConfigured()
+      ? await fetchStripeBillingSummary().catch(() => null)
+      : null;
 
     const day = new Date().toISOString().slice(0, 10);
     const topSnap = await db
@@ -91,6 +133,37 @@ export const adminGetDashboard = onCall(adminCallOptions, async (request) => {
       }),
     );
 
+    const recentSupportSnap = await db
+      .collection("supportTickets")
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get()
+      .catch(() => null);
+    const recentOpenTickets = recentSupportSnap
+      ? (
+          await Promise.all(
+            recentSupportSnap.docs
+              .filter((d) => d.data().status === "open")
+              .slice(0, 5)
+              .map(async (doc) => {
+                const data = doc.data();
+                const uid = data.uid as string;
+                const profile = await db.doc(`userProfiles/${uid}`).get();
+                return {
+                  id: doc.id,
+                  uid,
+                  email:
+                    (data.email as string | undefined) ??
+                    (profile.data()?.email as string | undefined) ??
+                    null,
+                  messagePreview: String(data.message ?? "").slice(0, 120),
+                  createdAt: data.createdAt ?? null,
+                };
+              }),
+          )
+        )
+      : [];
+
     return {
       users: { total: totalUsers, activeLast7d },
       usage: {
@@ -101,17 +174,23 @@ export const adminGetDashboard = onCall(adminCallOptions, async (request) => {
           activeUsers: usageToday.activeUsers,
         },
         topCloudUsers,
+        overQuotaFree,
       },
       billing: {
-        stripeConfigured: stripeConfigured(),
-        mrr: null as number | null,
-        activeSubscriptions: null as number | null,
-        message: stripeConfigured()
-          ? "Stripe secret present — wire webhooks for live MRR."
-          : "Set STRIPE_SECRET_KEY on Functions to enable billing metrics.",
+        stripeConfigured: isStripeConfigured(),
+        mrr: billingSummary?.mrr ?? null,
+        activeSubscriptions: billingSummary?.activeSubscriptions ?? null,
+        pastDueSubscriptions: billingSummary?.pastDueSubscriptions ?? null,
+        planCounts: billingSummary?.planCounts ?? null,
+        recentEvents: billingSummary?.recentEvents ?? [],
+        message: isStripeConfigured()
+          ? billingSummary
+            ? "Live metrics from Stripe."
+            : "Stripe configured — check API key and webhook."
+          : "Set STRIPE_SECRET_KEY on Functions to enable billing.",
       },
       flags: { open: openFlags },
-      support: { open: openSupport },
+      support: { open: openSupport, recentOpenTickets },
     };
   },
 );
@@ -136,6 +215,7 @@ export const adminListUsers = onCall(adminCallOptions, async (request) => {
     const batch = await getAuth().listUsers(limit, pageToken);
     const db = getFirestore();
     const day = new Date().toISOString().slice(0, 10);
+    const planConfig = await getLaunchPlanConfig();
 
     const users = await Promise.all(
       batch.users.map(async (u) => {
@@ -143,6 +223,8 @@ export const adminListUsers = onCall(adminCallOptions, async (request) => {
         const p = profile.data() ?? {};
         const usage = await db.doc(`usageDaily/${day}/users/${u.uid}`).get();
         const usageData = usage.data() ?? {};
+        const plan = (p.plan as string | undefined) ?? "free";
+        const monthUsage = await readMonthUsage(u.uid);
         return {
           uid: u.uid,
           email: u.email ?? (p.email as string | undefined) ?? null,
@@ -150,13 +232,19 @@ export const adminListUsers = onCall(adminCallOptions, async (request) => {
           createdAt: u.metadata.creationTime,
           lastLoginAt: u.metadata.lastSignInTime ?? null,
           role: (p.role as string | undefined) ?? "member",
-          plan: (p.plan as string | undefined) ?? "free",
+          plan,
           suspended: Boolean(p.suspended) || u.disabled,
           platform: (p.platform as string | undefined) ?? null,
           usageToday: {
             aiCalls: (usageData.aiCalls as number) ?? 0,
             cloudSttChunks: (usageData.cloudSttChunks as number) ?? 0,
           },
+          usageMonth: {
+            aiCalls: monthUsage.aiCalls,
+            cloudSttChunks: monthUsage.cloudSttChunks,
+            cloudSttMinutes: monthUsage.cloudSttMinutes,
+          },
+          overQuota: isOverMonthlyQuota(plan, monthUsage, planConfig),
         };
       }),
     );
@@ -171,10 +259,10 @@ export const adminListUsers = onCall(adminCallOptions, async (request) => {
 const updateUserSchema = z.object({
   uid: z.string().min(1),
   role: z.enum(["admin", "member"]).optional(),
-  plan: z.enum(["free", "pro", "business"]).optional(),
+  plan: z.enum(["free", "pro", "power", "business"]).optional(),
   suspended: z.boolean().optional(),
   trialEndsAt: z.number().nullable().optional(),
-  adminNotes: z.string().max(4000).optional(),
+  adminNotes: optionalString(),
 });
 
 function lastNDays(n: number): string[] {
@@ -189,7 +277,7 @@ function lastNDays(n: number): string[] {
 
 export const adminUpdateUser = onCall(adminCallOptions, async (request) => {
     bindAdminEmailsEnv();
-    await assertAdmin(request);
+    const actor = await assertAdmin(request);
     const parsed = updateUserSchema.safeParse(request.data);
     if (!parsed.success) {
       throw new HttpsError("invalid-argument", parsed.error.message);
@@ -226,7 +314,9 @@ export const adminUpdateUser = onCall(adminCallOptions, async (request) => {
       updatedAt: FieldValue.serverTimestamp(),
     };
     if (role !== undefined) profilePatch.role = role;
-    if (plan !== undefined) profilePatch.plan = plan;
+    if (plan !== undefined) {
+      profilePatch.plan = plan === "business" ? "power" : plan;
+    }
     if (suspended !== undefined) profilePatch.suspended = suspended;
     if (trialEndsAt !== undefined) profilePatch.trialEndsAt = trialEndsAt;
     if (parsed.data.adminNotes !== undefined) {
@@ -234,6 +324,50 @@ export const adminUpdateUser = onCall(adminCallOptions, async (request) => {
     }
 
     await db.doc(`userProfiles/${uid}`).set(profilePatch, { merge: true });
+
+    if (suspended !== undefined) {
+      await writeAdminAuditLog({
+        actorUid: actor.uid,
+        actorEmail: actor.email,
+        action: suspended ? "user.suspend" : "user.unsuspend",
+        targetUid: uid,
+      });
+    }
+    if (plan !== undefined) {
+      await writeAdminAuditLog({
+        actorUid: actor.uid,
+        actorEmail: actor.email,
+        action: "user.plan_change",
+        targetUid: uid,
+        snapshot: { plan },
+      });
+    }
+    if (role !== undefined) {
+      await writeAdminAuditLog({
+        actorUid: actor.uid,
+        actorEmail: actor.email,
+        action: "user.role_change",
+        targetUid: uid,
+        snapshot: { role },
+      });
+    }
+    if (trialEndsAt !== undefined) {
+      await writeAdminAuditLog({
+        actorUid: actor.uid,
+        actorEmail: actor.email,
+        action: "user.trial_change",
+        targetUid: uid,
+        snapshot: { trialEndsAt },
+      });
+    }
+    if (parsed.data.adminNotes !== undefined) {
+      await writeAdminAuditLog({
+        actorUid: actor.uid,
+        actorEmail: actor.email,
+        action: "user.notes_update",
+        targetUid: uid,
+      });
+    }
 
     return { ok: true, uid };
   },
@@ -275,6 +409,7 @@ export const adminGetUser = onCall(adminCallOptions, async (request) => {
     throw new HttpsError("not-found", "User not found.");
   }
   const profile = (await db.doc(`userProfiles/${uid}`).get()).data() ?? {};
+  const plan = (profile.plan as string | undefined) ?? "free";
   const days = lastNDays(7);
   const usageByDay: Array<{
     day: string;
@@ -292,6 +427,11 @@ export const adminGetUser = onCall(adminCallOptions, async (request) => {
       meetings: (d.meetings as number) ?? 0,
     });
   }
+
+  const monthUsage = await readMonthUsageWithFallback(uid);
+  const planConfig = await getLaunchPlanConfig();
+  const limits = getPlanLimitsForSync(plan, planConfig);
+
   return {
     uid,
     email: authUser.email ?? (profile.email as string | undefined) ?? null,
@@ -300,12 +440,20 @@ export const adminGetUser = onCall(adminCallOptions, async (request) => {
     lastLoginAt: authUser.metadata.lastSignInTime ?? null,
     emailVerified: authUser.emailVerified,
     role: (profile.role as string | undefined) ?? "member",
-    plan: (profile.plan as string | undefined) ?? "free",
+    plan,
     suspended: Boolean(profile.suspended) || authUser.disabled,
     platform: (profile.platform as string | undefined) ?? null,
     adminNotes: (profile.adminNotes as string | undefined) ?? "",
     trialEndsAt: (profile.trialEndsAt as number | undefined) ?? null,
     usageByDay,
+    usageMonth: {
+      month: currentMonthKey(),
+      aiCalls: monthUsage.aiCalls,
+      cloudSttChunks: monthUsage.cloudSttChunks,
+      cloudSttMinutes: monthUsage.cloudSttMinutes,
+      limits,
+      overQuota: isOverMonthlyQuota(plan, monthUsage, planConfig),
+    },
   };
 });
 
@@ -358,15 +506,15 @@ export const adminListSupportTickets = onCall(adminCallOptions, async (request) 
 
 export const adminUpdateSupportTicket = onCall(adminCallOptions, async (request) => {
   bindAdminEmailsEnv();
-  await assertAdmin(request);
+  const actor = await assertAdmin(request);
   const schema = z.object({
     ticketId: z.string().min(1),
     status: z.enum(["open", "resolved"]),
-    adminReply: z.string().max(4000).optional(),
+    adminReply: optionalString(),
   });
-  const parsed = schema.safeParse(request.data);
+  const parsed = schema.safeParse(request.data ?? {});
   if (!parsed.success) {
-    throw new HttpsError("invalid-argument", parsed.error.message);
+    throw new HttpsError("invalid-argument", formatZodError(parsed.error));
   }
   const ref = getFirestore().doc(`supportTickets/${parsed.data.ticketId}`);
   const snap = await ref.get();
@@ -381,12 +529,22 @@ export const adminUpdateSupportTicket = onCall(adminCallOptions, async (request)
     patch.adminReply = parsed.data.adminReply;
   }
   await ref.update(patch);
+
+  await writeAdminAuditLog({
+    actorUid: actor.uid,
+    actorEmail: actor.email,
+    action:
+      parsed.data.status === "resolved" ? "support.resolve" : "support.reopen",
+    targetUid: (snap.data()?.uid as string | undefined) ?? null,
+    referenceId: parsed.data.ticketId,
+  });
+
   return { ok: true };
 });
 
 export const adminResolveFlag = onCall(adminCallOptions, async (request) => {
     bindAdminEmailsEnv();
-    await assertAdmin(request);
+    const actor = await assertAdmin(request);
     const schema = z.object({
       flagId: z.string().min(1),
       status: z.enum(["open", "resolved", "dismissed"]),
@@ -403,6 +561,14 @@ export const adminResolveFlag = onCall(adminCallOptions, async (request) => {
     await ref.update({
       status: parsed.data.status,
       resolvedAt: FieldValue.serverTimestamp(),
+    });
+    await writeAdminAuditLog({
+      actorUid: actor.uid,
+      actorEmail: actor.email,
+      action: "flag.resolve",
+      targetUid: (snap.data()?.uid as string | undefined) ?? null,
+      referenceId: parsed.data.flagId,
+      snapshot: { status: parsed.data.status },
     });
     return { ok: true };
   },

@@ -2,9 +2,9 @@
 
 import {
   applyTemplateTitle,
-  MEETING_TEMPLATES,
-  type MeetingTemplate,
+  BUILTIN_MEETING_TEMPLATES,
 } from "@/lib/meetings/templates";
+import type { MeetingTemplate } from "@/lib/meetings/template-schema";
 import { Play } from "lucide-react";
 
 type StartMeetingPanelProps = {
@@ -31,7 +31,7 @@ export function StartMeetingPanel({
       ) : null}
 
       <div className="grid gap-2 sm:grid-cols-3">
-        {MEETING_TEMPLATES.map((t) => (
+        {BUILTIN_MEETING_TEMPLATES.map((t) => (
           <button
             key={t.id}
             type="button"

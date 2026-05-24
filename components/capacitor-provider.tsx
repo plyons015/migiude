@@ -1,10 +1,10 @@
 "use client";
 
 import { App } from "@capacitor/app";
-import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { useEffect } from "react";
 import { isNativePlatform } from "@/lib/capacitor/platform";
+import { reportClientError } from "@/lib/telemetry/report-client-error";
 
 export function CapacitorProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -17,13 +17,6 @@ export function CapacitorProvider({ children }: { children: React.ReactNode }) {
         // Status bar plugin not available on all WebViews
       }
 
-      try {
-        await new Promise((r) => setTimeout(r, 500));
-        await SplashScreen.hide();
-      } catch {
-        /* Splash may already be hidden */
-      }
-
       await App.addListener("backButton", ({ canGoBack }) => {
         if (canGoBack) {
           window.history.back();
@@ -32,6 +25,35 @@ export function CapacitorProvider({ children }: { children: React.ReactNode }) {
         void App.exitApp();
       });
     })();
+  }, []);
+
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => {
+      void reportClientError({
+        message: event.message || "window.error",
+        stack: event.error?.stack,
+        platform: "android",
+        route: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
+    };
+    const onRejection = (event: PromiseRejectionEvent) => {
+      const reason =
+        event.reason instanceof Error
+          ? `${event.reason.name}: ${event.reason.message}`
+          : String(event.reason);
+      void reportClientError({
+        message: reason.slice(0, 1000),
+        stack: event.reason instanceof Error ? event.reason.stack : undefined,
+        platform: "android",
+        route: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
   }, []);
 
   return children;
