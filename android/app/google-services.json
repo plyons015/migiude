@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "469307102795",
+    "project_id": "migiude-app-plyons015",
+    "storage_bucket": "migiude-app-plyons015.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:469307102795:android:d275a3736e8d3cb27a9fce",
+        "android_client_info": {
+          "package_name": "com.migiude.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "469307102795-c7cfr9jrcv8hqsavubtkr5l86vhjos5a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbc16cgdKq9XXiM2GZc8twNYdnDL1CqVs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "469307102795-c7cfr9jrcv8hqsavubtkr5l86vhjos5a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

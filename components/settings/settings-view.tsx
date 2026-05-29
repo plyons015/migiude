@@ -497,8 +497,10 @@ export function SettingsView() {
             <Link href="/setup/" className="underline">Setup</Link>
           </p>
           <p className="text-xs">
-            FCM: add <code className="text-xs">android/app/google-services.json</code>{" "}
-            from Firebase Console.
+            FCM push is enabled when{" "}
+            <code className="text-xs">android/app/google-services.json</code> is present
+            and <code className="text-xs">NEXT_PUBLIC_ENABLE_FCM=true</code> in your
+            web env (rebuild APK after changes).
           </p>
           <Link href="/onboarding/" className="text-xs font-medium underline">
             Replay onboarding

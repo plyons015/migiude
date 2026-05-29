@@ -8,15 +8,6 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
-        <!-- Path A (no FCM): keep this remove until google-services.json exists.
-             Path B (FCM): delete this block after adding android/app/google-services.json
-             and set NEXT_PUBLIC_ENABLE_FCM=true — see docs/ANDROID_CRASH_FIX.md -->
-        <provider
-            android:name="com.google.firebase.provider.FirebaseInitProvider"
-            android:authorities="${applicationId}.firebaseinitprovider"
-            tools:node="remove"
-        />
-
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"

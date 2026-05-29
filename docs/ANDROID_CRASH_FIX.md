@@ -60,7 +60,7 @@ The Push Notifications plugin pulls in Firebase Messaging. Without `android/app/
 **Fix A (recommended for push):**
 
 1. Firebase Console → Project settings → Your apps → Android  
-2. Package name: `com.Ude.app`  
+2. Package name: `com.migiude.app`  
 3. Download `google-services.json` → save as `android/app/google-services.json`  
 4. Run `npm run cap:sync` and rebuild in Android Studio  
 
