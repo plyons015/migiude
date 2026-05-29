@@ -10,6 +10,9 @@ export type TranscriptChunk = {
 
 export type TranscriptionMode = "browser" | "cloud";
 
+/** Which on-device engine is active when mode is "browser". */
+export type LocalSttEngine = "whisper" | "whisper-native" | "webspeech";
+
 export type SpeechRecognitionHandlers = {
   onInterim?: (text: string) => void;
   onFinalChunk?: (chunk: TranscriptChunk) => void;

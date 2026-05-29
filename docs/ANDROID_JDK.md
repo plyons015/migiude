@@ -85,7 +85,7 @@ Open `android/` in Studio, **File → Sync Project with Gradle Files**, then **R
 ## Retry
 
 ```powershell
-cd c:\Users\plyon\Documents\chapappteams\migiude-1
+cd c:\Users\plyon\Documents\chapappteams\Ude-1
 npm run cap:run:android
 ```
 

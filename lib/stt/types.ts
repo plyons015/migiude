@@ -11,6 +11,7 @@ export const transcribeInputSchema = z.object({
   lang: z.string().default("en-US"),
   /** Decoded speech duration sent to STT (ms). Used for usage metering. */
   audioDurationMs: z.number().int().min(0).max(120_000).optional(),
+  context: z.enum(["quick", "meeting"]).optional(),
 });
 
 export const transcribeOutputSchema = z.object({

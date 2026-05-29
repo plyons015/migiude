@@ -8,6 +8,24 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      sharp$: false,
+      "onnxruntime-node$": false,
+    };
+    return config;
+  },
+  turbopack: {
+    resolveAlias: {
+      sharp: {
+        browser: "./lib/stubs/empty.ts",
+      },
+      "onnxruntime-node": {
+        browser: "./lib/stubs/empty.ts",
+      },
+    },
+  },
 };
 
 export default nextConfig;

@@ -4,7 +4,7 @@ import {
 } from "@/lib/meetings/parse-transcript-segments";
 import { resolveMeetingTemplate } from "@/lib/meetings/custom-templates-store";
 import { saveMeeting } from "@/lib/data/meetings-store";
-import { saveNote } from "@/lib/data/notes-store";
+import { findNoteByMeetingId, saveNote } from "@/lib/data/notes-store";
 import type { MeetingRecord, TranscriptHighlight } from "@/lib/data/types";
 import { buildTemplateMinutesScaffold } from "@/lib/meetings/templates";
 
@@ -35,7 +35,11 @@ export async function finalizeMeeting(
     ? resolveMeetingTemplate(input.templateId, userId)
     : undefined;
 
+  const existingNote = await findNoteByMeetingId(userId, input.meetingId);
+
   const note = await saveNote(userId, {
+    id: existingNote?.id,
+    createdAt: existingNote?.createdAt,
     title: title || "Meeting notes",
     body: transcript,
     transcript,
@@ -43,6 +47,7 @@ export async function finalizeMeeting(
     meetingId: input.meetingId,
     tags: input.tags?.length ? input.tags : undefined,
     highlights: input.highlights?.length ? input.highlights : undefined,
+    mindMapSource: existingNote?.mindMapSource,
   });
 
   const segments = parseTranscriptToSegments(transcript);

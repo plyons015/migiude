@@ -10,7 +10,7 @@ Run Auth, Firestore, and **AI Functions** on your machine. The Android APK alway
   - Check: `java -version` should show `21` or higher.
 - Node **22+** (`nvm use` in project root)
 - Firebase CLI logged in: `firebase login`
-- Project: `migiude-app-plyons015` (`.firebaserc`)
+- Project: `Ude-app-plyons015` (`.firebaserc`)
 - **Gemini API key** from [Google AI Studio](https://aistudio.google.com/apikey) (free tier is fine)
 
 ```bash
@@ -37,7 +37,7 @@ XAI_API_KEY=
 Production deploy uses Secret Manager:
 
 ```bash
-firebase functions:secrets:set GEMINI_API_KEY --project migiude-app-plyons015
+firebase functions:secrets:set GEMINI_API_KEY --project Ude-app-plyons015
 ```
 
 ## 2. Point the web app at emulators

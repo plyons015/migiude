@@ -1,21 +1,30 @@
 "use client";
 
+import { ARCHIVE_PATH } from "@/lib/archive/routes";
+import { MEETINGS_PATH } from "@/lib/meetings/routes";
+import { PEOPLE_PATH } from "@/lib/people/routes";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Library } from "lucide-react";
+import { BookText, Calendar, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const REMOTE_LINKS = [
-  { href: "/notes/", label: "Notes", icon: FileText },
-  { href: "/library/", label: "Library", icon: Library },
+  { href: MEETINGS_PATH, label: "Meetings", icon: Calendar },
+  { href: ARCHIVE_PATH, label: "Notepad", icon: BookText },
+  { href: PEOPLE_PATH, label: "Friends", icon: Users },
 ] as const;
 
 export function ThumbRemote() {
   const pathname = usePathname();
 
   function active(href: string): boolean {
-    const base = href.replace(/\/$/, "");
-    return pathname === base || pathname.startsWith(`${base}/`);
+    if (href === MEETINGS_PATH) {
+      return pathname.startsWith("/meetings") || pathname.startsWith("/library");
+    }
+    if (href === ARCHIVE_PATH) {
+      return pathname.startsWith("/archive") || pathname.startsWith("/notes");
+    }
+    return pathname.startsWith(href.replace(/\/$/, ""));
   }
 
   return (

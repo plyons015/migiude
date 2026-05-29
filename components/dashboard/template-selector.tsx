@@ -78,7 +78,7 @@ export function TemplateSelector({
         </p>
       ) : (
         <p className="text-center text-[10px] text-muted-foreground">
-          Tap mic · on-device · Hold 5s · cloud
+          Tap mic · on-device · Hold for cloud meeting
         </p>
       )}
     </div>

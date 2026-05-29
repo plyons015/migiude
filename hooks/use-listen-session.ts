@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppSettings } from "@/hooks/use-app-settings";
+import { useSpeechPersonalization } from "@/hooks/use-speech-personalization";
 import { useTranscription } from "@/hooks/use-transcription";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { createId } from "@/lib/data/ids";
@@ -21,8 +22,16 @@ import { applyTemplateTitle } from "@/lib/meetings/templates";
 import type { MeetingTemplate } from "@/lib/meetings/template-schema";
 import {
   clearListenSession,
+  LISTEN_AUTOSAVE_MS,
+  loadListenSession,
   saveListenSession,
 } from "@/lib/listen/session-persist";
+import { runVoiceCommand } from "@/lib/listen/voice-commands";
+import {
+  detectLocalTodoHints,
+  mergeTodoHints,
+  type LocalTodoHint,
+} from "@/lib/speech/local-todo-hints";
 import type { TranscriptionMode } from "@/lib/speech/types";
 import type { TranscriptChunk } from "@/lib/speech/types";
 import { format } from "date-fns";
@@ -30,7 +39,7 @@ import {
   minutesFromMs,
   reportTrialUsage,
 } from "@/lib/plan/report-trial-usage";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type SavedCapture = {
   kind: "note" | "meeting";
@@ -55,7 +64,11 @@ export function useListenSession(userId: string) {
   const [savedCapture, setSavedCapture] = useState<SavedCapture | null>(null);
   const [lineActionMsg, setLineActionMsg] = useState<string | null>(null);
 
-  const { localOnly } = useAppSettings();
+  const { localOnly, localTodoHints, voiceCommands } = useAppSettings();
+  const { personalize, saveCorrection } = useSpeechPersonalization(userId);
+  const [todoHints, setTodoHints] = useState<LocalTodoHint[]>([]);
+  const lastHintChunkRef = useRef<string | null>(null);
+  const lastCmdChunkRef = useRef<string | null>(null);
 
   const inMeeting = activeMeeting !== null;
 
@@ -70,12 +83,21 @@ export function useListenSession(userId: string) {
     startListening,
     stopListening,
     clearTranscript,
+    restoreTranscript,
     transcriptionMode,
     meetingTranscriptionMode,
     quickTranscriptionMode,
     captureWarning,
     capturePhase,
-  } = useTranscription(inMeeting ? "meeting" : "quick");
+    localEngine,
+    localSttFallbackNotice,
+    whisperModelLoadProgress,
+    whisperModelLoadLabel,
+    whisperVadSilent,
+    updateChunkText,
+  } = useTranscription(inMeeting ? "meeting" : "quick", undefined, {
+    personalize,
+  });
 
   useWakeLock(isListening);
 
@@ -94,8 +116,37 @@ export function useListenSession(userId: string) {
       setMeetingTitle(draft.title);
       setMeetingTags(draft.tags);
       setCaptureActive(true);
+      return;
     }
-  }, [hydrated]);
+    const saved = loadListenSession();
+    if (saved?.captureActive) {
+      if (saved.chunks.length > 0) {
+        restoreTranscript(saved.chunks);
+      }
+      setHighlights(saved.highlights ?? []);
+      setCaptureActive(true);
+    }
+  }, [hydrated, restoreTranscript]);
+
+  const persistSession = useCallback(() => {
+    if (!sessionVisible) return;
+    saveListenSession(chunks, highlights, {
+      captureActive: true,
+      inMeeting,
+    });
+  }, [chunks, highlights, sessionVisible, inMeeting]);
+
+  useEffect(() => {
+    if (!sessionVisible) return;
+    const debounce = window.setTimeout(persistSession, 800);
+    return () => clearTimeout(debounce);
+  }, [sessionVisible, persistSession]);
+
+  useEffect(() => {
+    if (!sessionVisible) return;
+    const interval = window.setInterval(persistSession, LISTEN_AUTOSAVE_MS);
+    return () => clearInterval(interval);
+  }, [sessionVisible, persistSession]);
 
   useEffect(() => {
     if (!activeMeeting) return;
@@ -106,14 +157,12 @@ export function useListenSession(userId: string) {
     });
   }, [activeMeeting, meetingTitle, meetingTags]);
 
-  useEffect(() => {
-    if (!hasTranscript && !highlights.length) return;
-    saveListenSession(chunks, highlights);
-  }, [chunks, highlights, hasTranscript]);
-
   const resetSession = useCallback(() => {
     clearTranscript();
     setHighlights([]);
+    setTodoHints([]);
+    lastHintChunkRef.current = null;
+    lastCmdChunkRef.current = null;
     setCaptureActive(false);
     setActiveMeeting(null);
     setMeetingTitle("");
@@ -226,9 +275,94 @@ export function useListenSession(userId: string) {
     [highlightChunk, addTodoFromChunk],
   );
 
+  const dismissTodoHint = useCallback((hintId: string) => {
+    setTodoHints((prev) => prev.filter((h) => h.id !== hintId));
+  }, []);
+
+  const addTodoFromHint = useCallback(
+    async (hint: LocalTodoHint) => {
+      if (!isFirebaseConfigured()) return;
+      try {
+        await saveTodo(userId, {
+          text: hint.text,
+          meetingId: activeMeeting?.id,
+          dueAt: hint.dueAt,
+        });
+        dismissTodoHint(hint.id);
+        flashLineMsg("Todo added");
+      } catch (e) {
+        flashLineMsg(e instanceof Error ? e.message : "Could not add todo");
+      }
+    },
+    [userId, activeMeeting?.id, dismissTodoHint, flashLineMsg],
+  );
+
+  const correctChunkText = useCallback(
+    async (chunk: TranscriptChunk, newText: string) => {
+      const trimmed = newText.trim();
+      if (!trimmed || trimmed === chunk.text.trim()) return;
+      await saveCorrection(chunk.text, trimmed);
+      updateChunkText(chunk.id, trimmed);
+      flashLineMsg("Correction saved");
+    },
+    [saveCorrection, updateChunkText, flashLineMsg],
+  );
+
+  useEffect(() => {
+    if (!localTodoHints || chunks.length === 0) return;
+    const last = chunks[chunks.length - 1];
+    if (!last || lastHintChunkRef.current === last.id) return;
+    lastHintChunkRef.current = last.id;
+    const found = detectLocalTodoHints(last.text, last.id);
+    if (found.length > 0) {
+      setTodoHints((prev) => mergeTodoHints(prev, found));
+    }
+  }, [chunks, localTodoHints]);
+
+  useEffect(() => {
+    if (!voiceCommands || chunks.length === 0) return;
+    const last = chunks[chunks.length - 1];
+    if (!last || lastCmdChunkRef.current === last.id) return;
+    lastCmdChunkRef.current = last.id;
+
+    void runVoiceCommand(last.text, {
+      onAddTodo: async (text) => {
+        if (!isFirebaseConfigured()) return;
+        try {
+          await saveTodo(userId, {
+            text,
+            meetingId: activeMeeting?.id,
+          });
+          flashLineMsg(`Todo: ${text}`);
+        } catch (e) {
+          flashLineMsg(
+            e instanceof Error ? e.message : "Could not add todo",
+          );
+        }
+      },
+      onHighlight: () => {
+        highlightChunk(last);
+      },
+      onSummarizeSoFar: async () => {
+        flashLineMsg("Summarize after you save the capture");
+      },
+    });
+  }, [
+    voiceCommands,
+    chunks,
+    userId,
+    activeMeeting?.id,
+    highlightChunk,
+    flashLineMsg,
+  ]);
+
+  const savingRef = useRef(false);
+
   const saveAndClose = useCallback(async () => {
     if (!hasTranscript && highlights.length === 0) return;
+    if (savingRef.current || saveBusy) return;
     if (isListening) stopListening();
+    savingRef.current = true;
     setSaveBusy(true);
     setSaveError(null);
     try {
@@ -281,12 +415,14 @@ export function useListenSession(userId: string) {
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Save failed");
     } finally {
+      savingRef.current = false;
       setSaveBusy(false);
     }
   }, [
     hasTranscript,
     highlights,
     isListening,
+    saveBusy,
     stopListening,
     inMeeting,
     activeMeeting,
@@ -324,6 +460,11 @@ export function useListenSession(userId: string) {
     error,
     captureWarning,
     capturePhase,
+    localEngine,
+    localSttFallbackNotice,
+    whisperModelLoadProgress,
+    whisperModelLoadLabel,
+    whisperVadSilent,
     transcriptionMode: displayMode,
     saveBusy,
     saveError,
@@ -338,6 +479,10 @@ export function useListenSession(userId: string) {
     highlightChunk,
     addTodoFromChunk,
     highlightAndTodoFromChunk,
+    correctChunkText,
+    todoHints,
+    dismissTodoHint,
+    addTodoFromHint,
     dismissSavedCapture,
   };
 }

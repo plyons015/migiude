@@ -8,7 +8,7 @@ import android.os.Build;
 import android.util.Log;
 
 /**
- * Pauses/ducks other apps' playback and sets voice-communication mode while Migiude
+ * Pauses/ducks other apps' playback and sets voice-communication mode while Ude
  * captures speech. Does not grant true OS-level mic exclusivity against every app,
  * but stops most music/video from playing into the microphone.
  */

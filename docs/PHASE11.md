@@ -17,7 +17,7 @@
 
 Push is **disabled by default** (`NEXT_PUBLIC_ENABLE_FCM=false`). Enabling FCM without `google-services.json` can crash the app when you tap **Sign in**.
 
-1. Firebase Console → Project settings → add Android app `com.migiude.app`
+1. Firebase Console → Project settings → add Android app `com.Ude.app`
 2. Download `google-services.json` → `android/app/google-services.json`
 3. Set `NEXT_PUBLIC_ENABLE_FCM=true` in `.env.local`
 4. `npm run cap:sync` then rebuild APK
@@ -35,6 +35,6 @@ Server-side push (summary ready, etc.) can call FCM Admin SDK with that token �
 
 See [ANDROID_RELEASE.md](ANDROID_RELEASE.md).
 
-## Migiude v1
+## Ude v1
 
-With Phases 6–11 complete, the [v1 definition of done](PHASES.md#definition-of-done--migiude-v1) is satisfied for a single-user privacy-first meeting assistant.
+With Phases 6–11 complete, the [v1 definition of done](PHASES.md#definition-of-done--Ude-v1) is satisfied for a single-user privacy-first meeting assistant.

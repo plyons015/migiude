@@ -8,6 +8,7 @@ import {
   IpodRecordingDisplay,
   type LineAction,
 } from "@/components/dashboard/ipod-recording-display";
+import { LocalTodoHintsPanel } from "@/components/dashboard/local-todo-hints-panel";
 import { MicHoldButton } from "@/components/dashboard/mic-hold-button";
 import { PostSaveAiDialog } from "@/components/dashboard/post-save-ai-dialog";
 import { RecordingMicButton } from "@/components/dashboard/recording-mic-button";
@@ -24,7 +25,14 @@ import type { TranscriptChunk } from "@/lib/speech/types";
 import { AlertCircle, Loader2, Settings } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { parseListenLaunchParams } from "@/lib/listen/launch-url";
+import {
+  resolveMeetingTemplate,
+  setSelectedTemplateId,
+} from "@/lib/meetings/custom-templates-store";
+import type { TranscriptionMode } from "@/lib/speech/types";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DashboardViewProps = {
   userId: string;
@@ -32,10 +40,13 @@ type DashboardViewProps = {
 
 export function DashboardView({ userId }: DashboardViewProps) {
   const { user } = useAuthUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const launchHandledRef = useRef(false);
   const session = useListenSession(userId);
   const { notes } = useNotes(userId);
   const { meetings } = useMeetings(userId);
-  const { openTodos } = useTodos(userId);
+  const { todos, openTodos } = useTodos(userId);
   const { templates, selectedId } = useMeetingTemplates(userId);
   const [holdCloudHint, setHoldCloudHint] = useState(false);
   const [isHoldingMic, setIsHoldingMic] = useState(false);
@@ -72,13 +83,23 @@ export function DashboardView({ userId }: DashboardViewProps) {
     if (session.sessionVisible) return null;
     if (!isHoldingMic) return null;
     if (activeTemplate) {
-      return `${activeTemplate.label} — starting cloud meeting…`;
+      return `${activeTemplate.label} — starting meeting…`;
     }
     if (holdCloudHint) {
-      return "Cloud session — almost there. Keep holding…";
+      return session.localOnly
+        ? "Meeting mode — almost there. Keep holding…"
+        : "Hold for Meeting Mode — almost there…";
     }
-    return "On-device if you release now. Hold for cloud.";
-  }, [isHoldingMic, holdCloudHint, activeTemplate, session.sessionVisible]);
+    return session.localOnly
+      ? "On-device if you release now. Hold for meeting mode."
+      : "On-device Whisper if you release. Hold for Meeting Mode.";
+  }, [
+    isHoldingMic,
+    holdCloudHint,
+    activeTemplate,
+    session.sessionVisible,
+    session.localOnly,
+  ]);
 
   const onHoldChange = useCallback((holding: boolean, cloudHint: boolean) => {
     setIsHoldingMic(holding);
@@ -97,11 +118,47 @@ export function DashboardView({ userId }: DashboardViewProps) {
     session.startMeeting(activeTemplate, "cloud");
   }, [activeTemplate, session]);
 
+  // Honor legacy `/listen/?autostart=1&...` deep links redirected to home.
+  useEffect(() => {
+    if (!session.hydrated || !session.supported || launchHandledRef.current) {
+      return;
+    }
+    const launch = parseListenLaunchParams(searchParams);
+    if (!launch.autostart || !launch.mode) return;
+
+    launchHandledRef.current = true;
+    router.replace("/dashboard/", { scroll: false });
+
+    const mode: TranscriptionMode =
+      launch.mode === "cloud" ? "cloud" : "browser";
+
+    if (launch.meeting) {
+      const template = launch.templateId
+        ? (resolveMeetingTemplate(launch.templateId, userId) ?? null)
+        : null;
+      if (template) setSelectedTemplateId(template.id);
+      const meetingMode: TranscriptionMode =
+        template?.preferCloud || launch.mode === "cloud" ? "cloud" : "browser";
+      session.startMeeting(template, meetingMode);
+      return;
+    }
+
+    session.startQuickListen(mode);
+  }, [
+    router,
+    searchParams,
+    session.hydrated,
+    session.supported,
+    session.startMeeting,
+    session.startQuickListen,
+    userId,
+  ]);
+
   const handleLineAction = useCallback(
     (chunk: TranscriptChunk, action: LineAction) => {
       if (action === "highlight") session.highlightChunk(chunk);
       else if (action === "todo") void session.addTodoFromChunk(chunk);
-      else void session.highlightAndTodoFromChunk(chunk);
+      else if (action === "both") void session.highlightAndTodoFromChunk(chunk);
     },
     [session],
   );
@@ -185,7 +242,15 @@ export function DashboardView({ userId }: DashboardViewProps) {
         {!session.sessionVisible ? <EmailVerificationBanner /> : null}
 
         {session.sessionVisible ? (
-          <IpodRecordingDisplay
+          <>
+            {session.todoHints.length > 0 ? (
+              <LocalTodoHintsPanel
+                hints={session.todoHints}
+                onAdd={(h) => void session.addTodoFromHint(h)}
+                onDismiss={session.dismissTodoHint}
+              />
+            ) : null}
+            <IpodRecordingDisplay
             title={recordingTitle}
             subtitle={recordingSubtitle}
             chunks={session.chunks}
@@ -193,6 +258,11 @@ export function DashboardView({ userId }: DashboardViewProps) {
             isListening={session.isListening}
             isPaused={session.isPaused}
             transcriptionMode={session.transcriptionMode}
+            localEngine={session.localEngine}
+            whisperModelLoadProgress={session.whisperModelLoadProgress}
+            whisperModelLoadLabel={session.whisperModelLoadLabel}
+            localSttFallbackNotice={session.localSttFallbackNotice}
+            whisperVadSilent={session.whisperVadSilent}
             capturePhase={
               session.transcriptionMode === "cloud"
                 ? session.capturePhase
@@ -203,21 +273,29 @@ export function DashboardView({ userId }: DashboardViewProps) {
             saveBusy={session.saveBusy}
             error={session.error ?? session.saveError}
             onLineAction={handleLineAction}
+            onCorrectChunk={(chunk, text) =>
+              void session.correctChunkText(chunk, text)
+            }
             onDiscard={session.discard}
             onContinue={session.resume}
             onSave={() => void session.saveAndClose()}
           />
+          </>
         ) : (
           <>
             <IpodDisplay
+              userId={userId}
               greeting={`Hello, ${displayName}`}
               subtitle={subtitle}
               holdHint={holdHint}
+              todos={todos}
             />
             <TemplateSelector
               templates={templates}
               selectedId={selectedId}
-              onSelect={() => {}}
+              onSelect={() => {
+                /* selection persisted via setSelectedTemplateId in TemplateSelector */
+              }}
             />
           </>
         )}
@@ -225,6 +303,15 @@ export function DashboardView({ userId }: DashboardViewProps) {
         {session.captureWarning ? (
           <p className="max-w-sm text-center text-[11px] text-amber-800 dark:text-amber-200">
             {session.captureWarning}
+          </p>
+        ) : null}
+
+        {session.error && !session.sessionVisible ? (
+          <p
+            className="max-w-sm text-center text-sm text-destructive"
+            role="alert"
+          >
+            {session.error}
           </p>
         ) : null}
       </div>
@@ -246,6 +333,7 @@ export function DashboardView({ userId }: DashboardViewProps) {
               onCloudHoldComplete={goCloud}
               onHoldChange={onHoldChange}
               cloudTemplateMode={Boolean(activeTemplate)}
+              localOnly={session.localOnly}
             />
             <ThumbRemote />
           </>

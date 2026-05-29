@@ -6,7 +6,7 @@ While Listen is active, **other apps can still play audio** (music, podcasts, Yo
 
 Web Speech and cloud STT both ultimately use the device microphone. They cannot fully “block every background app” without system-level privileges.
 
-## What Migiude does now
+## What Ude does now
 
 When you tap the mic on Android:
 
@@ -30,7 +30,7 @@ If focus cannot be granted, Listen shows a warning to close other media apps.
 
 If you use **Meeting mode (cloud STT)** and see long sentences you never said (e.g. story or podcast text) after short tests like “testing one two three”, that is usually **not** another app’s audio in the mic. Quiet ~8 second chunks were still sent to Gemini, which sometimes **invented** speech when the clip was mostly silence.
 
-Migiude now **skips silent chunks** before calling the API and uses a stricter STT prompt. Rebuild the app and redeploy `transcribeAudio` functions after updating.
+Ude now **skips silent chunks** before calling the API and uses a stricter STT prompt. Rebuild the app and redeploy `transcribeAudio` functions after updating.
 
 ## Limits (normal apps cannot fix)
 

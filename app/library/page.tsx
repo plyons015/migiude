@@ -1,11 +1,11 @@
 "use client";
 
 import { Suspense } from "react";
-import { AuthGate } from "@/components/auth-gate";
-import { LibraryView } from "@/components/library/library-view";
+import { ArchiveRedirect } from "@/components/archive/archive-redirect";
+import { meetingsUrlFromLibrarySearch } from "@/lib/meetings/routes";
 import { Loader2 } from "lucide-react";
 
-export default function LibraryPage() {
+export default function LibraryRedirectPage() {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <Suspense
@@ -15,7 +15,7 @@ export default function LibraryPage() {
           </div>
         }
       >
-        <AuthGate>{(uid) => <LibraryView userId={uid} />}</AuthGate>
+        <ArchiveRedirect mapSearch={meetingsUrlFromLibrarySearch} />
       </Suspense>
     </main>
   );

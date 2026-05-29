@@ -1,8 +1,8 @@
-# Migiude — Installed features (v1)
+# Ude — Installed features (v1)
 
 Privacy-first meeting and voice assistant: capture → transcribe → AI → organize and follow up.  
 **Platforms:** Web (Next.js static export) + **Android** (Capacitor).  
-**Status:** Phases 0–11 complete (v1).
+**Status:** Phases 0–11 complete (v1) · **On-device voice stack** Phases A–F (Whisper-first).
 
 ---
 
@@ -11,14 +11,59 @@ Privacy-first meeting and voice assistant: capture → transcribe → AI → org
 | Route | Purpose |
 |-------|---------|
 | `/` | Redirects to dashboard |
-| `/dashboard/` | Home — quick actions, daily recap, open follow-ups, recent meetings & notes |
-| `/listen/` | Voice capture, meetings, live transcript, AI actions |
-| `/notes/` | Notes list, editor, todos tab, filter by tag |
+| `/dashboard/` | **Home** — tap/hold mic, iPod transcript, quick todos, daily recap |
+| `/listen/` | Deep-link / legacy listen launch (redirects to dashboard patterns) |
+| `/archive/` | **Notepad** — saved notes list and editor |
 | `/meetings/?id=` | **Meeting room** (7 tabs) |
 | `/library/` | Find meetings by tag/topic; series follow-ups; follow-ups board |
+| `/people/` | **Friends & Groups** — invite friends, manage groups, generate group invites |
+| `/accept/?token=...` | Invite acceptance (group links) |
+| `/accept/?kind=friend&token=...&email=...` | Friend invite acceptance (auth-aware) |
 | `/settings/` | AI, voice/STT, meetings, privacy, appearance, Android |
+| `/help/on-device-modes/` | Guide: tap vs hold, Whisper engines, comparison |
 | `/setup/` | Firebase / env setup guide |
 | `/onboarding/` | First-run on Android (privacy, mic, notifications) |
+
+---
+
+## On-device voice (Phases A–F)
+
+**Primary UX:** `/dashboard/` mic — **tap = private**, **hold = meeting (cloud)**.
+
+### Tap — on-device (teal mic)
+
+| Engine | When |
+|--------|------|
+| **Native Whisper** (whisper.cpp) | Android arm64, setting on, JNI built |
+| **WASM Whisper** (Transformers.js) | Web, emulator, or native fallback |
+| **Web Speech** | Automatic fallback if Whisper cannot start |
+
+- ~3s PCM chunks, ~16 kHz; not word-by-word streaming
+- **VAD** — pause transcription on silence (toggle in Settings)
+- **Personalization** — custom vocabulary + learned line corrections (IndexedDB)
+- **Todo hints** — rule-based “I will…” / “remind me…” banners (no cloud)
+- **Multilingual** — recognition language picks `.en` vs multilingual models
+- **Session autosave** — transcript backup while capturing (refresh recovery)
+- **Wi‑Fi-only** — optional block on first model download
+
+### Hold — meeting mode (violet mic)
+
+- Configurable hold: **3s / 5s / 7s** (Settings → Meeting hold duration)
+- Purple ring at **half** the hold time → cloud meeting STT when released after full hold
+- **Cloud STT** — Firebase `transcribeAudio`, speaker labels, 8s chunks
+- **Haptics** on Android (tap, halfway, meeting start)
+- **Local-only mode** — hold starts on-device meeting only; no cloud upload
+
+### Docs
+
+| Phase | Topic |
+|-------|--------|
+| A | WASM Whisper default — [PHASE1.md](PHASE1.md) |
+| B | Tap vs hold UX — [ON_DEVICE_PHASE_B.md](ON_DEVICE_PHASE_B.md) |
+| C | VAD, autosave, Wi‑Fi-only — [ON_DEVICE_PHASE_C.md](ON_DEVICE_PHASE_C.md) |
+| D | Vocabulary, hints, multilingual — [ON_DEVICE_PHASE_D.md](ON_DEVICE_PHASE_D.md) |
+| E | Android native whisper.cpp — [ON_DEVICE_PHASE_E.md](ON_DEVICE_PHASE_E.md) |
+| F | Explainers & hold tuning — [ON_DEVICE_PHASE_F.md](ON_DEVICE_PHASE_F.md) |
 
 ---
 
@@ -28,31 +73,33 @@ Privacy-first meeting and voice assistant: capture → transcribe → AI → org
 
 | Mode | Behavior |
 |------|----------|
-| **Browser speech** (default) | Web Speech API — no audio leaves device; best for quick notes |
-| **Meeting mode (cloud STT)** | ~8s audio chunks → Firebase `transcribeAudio` → Gemini; speaker labels; works on many networks where browser speech fails |
+| **On-device Whisper** (default tap) | Native (Android) or WASM; VAD; personalization; multilingual |
+| **Browser speech** (fallback) | Web Speech API when Whisper cannot start |
+| **Meeting mode (cloud STT)** | Hold mic → cloud chunks → Firebase; speaker labels |
 
-### Listen features
+### Listen / dashboard features
 
 - Continuous listening with **interim + final** transcript lines
 - Line breaks on natural pauses (merged transcript)
 - **Wake lock** while listening (screen stays active)
-- **Privacy badge** — browser: “Audio discarded”; cloud: “Cloud STT”
+- **Privacy badge** — on-device vs cloud STT
 - **Copy transcript** to clipboard (markdown)
 - **Quick listen** — save transcript as a note without a meeting
-- **Continue last session** — restore transcript + highlights after refresh (`localStorage`)
-- **Highlights** — bookmark lines during capture (optional note); saved on note/meeting
-- Capacitor Android mic path (no redundant `getUserMedia` preflight)
+- **Continue last session** — restore transcript + highlights after refresh
+- **Highlights** — bookmark lines during capture
+- **Fix text** on a line → saves correction for future transcripts
+- Capacitor Android mic path + foreground service while recording
 
 ### Meeting capture
 
 - **Start meeting** with optional template (1:1, Client call, Standup) or no template
-- **End meeting** → canonical note + meeting record (transcript never overwritten by appends later)
+- **End meeting** → canonical note + meeting record
 - In-meeting: title, tags, highlights
 - Consent reminder copy for shared spaces
-- **Commitment awareness** — detects “I will…” phrases → todos with due times + reminders
+- **Commitment awareness** — “I will…” → todos with due times + reminders
 - **Voice commands** (when enabled): `add todo: …`, `highlight`, `summarize so far`
 - **Rolling summary** (optional) — periodic AI summary during long meetings
-- **Smart tags on end** — AI suggests tags before save (user confirms)
+- **Smart tags on end** — AI suggests tags before save
 
 ---
 
@@ -89,24 +136,27 @@ API keys live in **Secret Manager** / `functions/.secret.local` — never in the
 
 - Create, edit, delete notes
 - Sources: manual, listen, meeting
+- **Notepad** label in navigation (Archive)
 - **Tags** (chip input), filter list by tag
 - Optional transcript, mind map source, highlights
 - Link to `meetingId` when from a meeting
+- Saved note editor tabs: **Transcript**, **Summary**, **Mind map**
 
 ### Todos
 
 - Manual add, toggle complete, delete
 - **Due date** + reminders (1h quick-set in UI)
-- Status: **open** | **waiting** | **done** (meeting follow-ups)
-- **topicTag**, **assigneeLabel** (e.g. Speaker 2)
+- Status: **open** | **waiting** | **done**
+- **topicTag**, **assigneeLabel**
 - Link to `noteId` / `meetingId`
-- Extract from AI markdown on Listen or auto on meeting end
+- Extract from AI markdown or auto on meeting end
+- AI todo extraction dedupe
 
 ### Storage
 
-- **IndexedDB** local-first vault (notes, todos, meetings, appends)
+- **IndexedDB** local-first vault
 - **Firestore** sync when signed in (unless **local-only mode**)
-- Collections: `users/{uid}/notes`, `todos`, `meetings`, `meetingAppends`, `private/fcm`
+- Speech personalization DB (vocabulary + corrections)
 
 ---
 
@@ -116,15 +166,15 @@ Canonical transcript is **read-only**; appends are separate linked notes.
 
 | Tab | Features |
 |-----|----------|
-| **Transcript** | Parsed segments, rename speakers, reassign lines, view canonical block, highlights |
+| **Transcript** | Segments, rename speakers, reassign lines, highlights |
 | **Summary** | Edit or AI-generate summary |
-| **Your notes** | Linked **appends** with optional anchor (transcript line, topic, highlight); jump to line |
-| **Script** | Agenda (before) + minutes/narrative (after); AI polish minutes |
-| **Follow-ups** | Meeting todos — add, edit, status, topic, assignee |
-| **Topics** | Add/edit topics; AI suggest from transcript |
-| **Ask** | Chat scoped to transcript + summary + appends + open todos |
+| **Your notes** | Linked appends; jump to line |
+| **Script** | Agenda + minutes; AI polish |
+| **Follow-ups** | Meeting todos |
+| **Topics** | Add/edit; AI suggest |
+| **Ask** | Chat scoped to meeting context |
 
-**Export Markdown** — full bundle to clipboard (transcript, summary, minutes, topics, follow-ups, appends).
+**Export Markdown** — full bundle to clipboard.
 
 ---
 
@@ -132,7 +182,15 @@ Canonical transcript is **read-only**; appends are separate linked notes.
 
 - Filter meetings by **tag**, **topic**, or **open follow-ups only**
 - **Series** — open todos from earlier meetings sharing the same tag
-- **Follow-ups board** (`?view=board`) — three columns: open / waiting / done
+- **Follow-ups board** (`?view=board`) — open / waiting / done
+
+---
+
+## Friends, groups, and invites (`/people/`)
+
+- **Friends** — email invite links, accept flow, Firestore sync
+- **Groups** — create/edit, assign friends, group invite links
+- **Share workspace** — assign `groupId` on notes/meetings (metadata)
 
 ---
 
@@ -144,18 +202,15 @@ Canonical transcript is **read-only**; appends are separate linked notes.
 | **Client call** | `client` | Call structure agenda |
 | **Standup** | `standup`, `team` | Yesterday / today / blockers |
 
-Sets default title, tags, and agenda on **Start meeting**.
-
 ---
 
 ## Dashboard
 
+- **Home mic** — tap/hold capture (primary)
 - Quick links: Listen, Notes, Todos, Library
-- **Daily recap** — AI brief from yesterday’s meetings + open todos
-- **Open follow-ups** card
-- **Recent meetings** → meeting room
-- **Recent notes**
-- **Due soon** todos
+- **Daily recap** — AI brief
+- **Open follow-ups**, recent meetings & notes, **due soon**
+- iPod carousel (Free plan): greeting + upgrade nudges; swipe todos
 
 ---
 
@@ -164,11 +219,13 @@ Sets default title, tags, and agenda on **Start meeting**.
 | Section | Options |
 |---------|---------|
 | **AI model** | Gemini / Grok |
-| **Voice & transcription** | Browser vs cloud STT; speech language (en-US, en-GB, es, fr, de, ja) |
-| **Meetings** | Auto AI on end; smart tags on end; rolling summary interval; commitment awareness; voice commands |
-| **Privacy** | Local-only mode; todo reminders; clear local data |
-| **Appearance** | System / light / dark theme |
-| **Android** | Release notes; FCM setup hint; replay onboarding |
+| **Voice & transcription** | Quick vs meeting mode; Whisper tiny/base; pause on silence; Wi‑Fi-only download; **native Whisper (Android)**; **meeting hold 3/5/7s**; on-device todo hints; speech language |
+| **Why on-device?** | Comparison table + link to full guide |
+| **Speech vocabulary** | Custom terms + learned corrections |
+| **Meetings** | Auto AI on end; smart tags; rolling summary; commitments; voice commands |
+| **Privacy** | Local-only mode; notifications; clear local data |
+| **Appearance** | System / light / dark |
+| **Android** | Release notes; FCM hint; replay onboarding |
 
 ---
 
@@ -177,34 +234,32 @@ Sets default title, tags, and agenda on **Start meeting**.
 | Feature | Details |
 |---------|---------|
 | **Static web in APK** | `out/` bundled; AI/STT via HTTPS to Firebase |
-| **Foreground service** | Persistent notification while Listen is active |
-| **Local notifications** | Scheduled todo due reminders on device |
-| **FCM registration** | Token saved when `android/app/google-services.json` is present |
-| **Onboarding** | First launch: privacy, microphone, notifications |
-| **Permissions** | Internet, mic, wake lock, notifications, foreground service (microphone type) |
-| **Back button** | History back or exit app |
+| **Native Whisper** | whisper.cpp JNI, **arm64-v8a**; GGML download to app storage |
+| **Foreground service** | Notification while Listen is active |
+| **Local notifications** | Todo due reminders |
+| **FCM** | When `google-services.json` present |
+| **Onboarding** | Privacy, microphone, notifications |
+| **Permissions** | Internet, mic, wake lock, notifications, foreground service |
 
-Build: `npm run cap:sync` → `npm run cap:android` → signed APK. See [ANDROID_RELEASE.md](ANDROID_RELEASE.md).
+Build: `npm run cap:sync` → `npm run cap:android`. See [ANDROID_RELEASE.md](ANDROID_RELEASE.md).
 
 ---
 
 ## Notifications & reminders
 
-- **Web:** polling + Web Notifications API (browser)
-- **Android:** `@capacitor/local-notifications` for due times; optional FCM push when configured
-- **Meeting saved** local notification after End meeting (Android)
-- Toggle in Settings; permission requested in onboarding
+- **Web:** polling + Web Notifications API
+- **Android:** local notifications for due times; optional FCM
+- **Meeting saved** notification after End meeting (Android)
 
 ---
 
 ## Privacy & security
 
-- No long-term **audio storage** in browser mode
-- Cloud STT: short chunks sent for transcription, not retained server-side (per product copy)
-- **Local-only mode** — IndexedDB only, no Firestore sync; forces browser speech
-- AI keys only on **Firebase Functions** (Blaze + billing)
-- **Email/password** sign-in with optional **2FA** (authenticator TOTP + SMS backup) — see [AUTH.md](AUTH.md)
-- Anonymous sign-in dev-only (`NEXT_PUBLIC_ALLOW_ANONYMOUS=true`)
+- Tap path: audio processed **on device** (native or WASM)
+- Cloud STT only in **meeting mode** (hold or explicit cloud setting)
+- **Local-only mode** — no Firestore sync; cloud STT disabled
+- AI keys on **Firebase Functions** only
+- **Email/password** + optional **2FA** — [AUTH.md](AUTH.md)
 
 ---
 
@@ -212,32 +267,36 @@ Build: `npm run cap:sync` → `npm run cap:android` → signed APK. See [ANDROID
 
 | Layer | Packages / services |
 |-------|---------------------|
-| **UI** | Next.js 16, React 19, Tailwind, shadcn/ui, Lucide |
-| **Mobile** | Capacitor 8 (App, Splash, Status Bar, Local Notifications, Push Notifications) |
-| **Backend** | Firebase Auth, Firestore, Cloud Functions (Node 22) |
-| **AI** | Gemini via Generative Language API; Grok via Vercel AI SDK |
-| **Speech** | Web Speech API; cloud: MediaRecorder + Gemini multimodal |
-| **Charts** | Mermaid (mind maps) |
-| **Offline** | IndexedDB vault (custom, v2 schema with appends) |
+| **UI** | Next.js 16, React 19, Tailwind, shadcn/ui |
+| **Mobile** | Capacitor 8 |
+| **On-device STT** | Transformers.js; whisper.cpp (Android JNI) |
+| **Backend** | Firebase Auth, Firestore, Cloud Functions |
+| **AI** | Gemini; Grok via Vercel AI SDK |
+| **Cloud speech** | MediaRecorder + Gemini multimodal STT |
+| **Offline** | IndexedDB vault + personalization store |
 
 ---
 
 ## Not included (v1 / out of scope)
 
-- Team workspaces, sharing, permissions
-- Notion / Monday two-way sync
-- Full project management (Gantt, capacity, CRM)
-- Calendar integration (planned v2)
-- Always-on ambient background listening - Never to be included due to HIPAA COncerns
-- iOS app (Android-focused v1)
-- PWA install prompt (by design) - Never to be included
+- Gemini Nano on-device LLM
+- iOS native app
+- x86 Android native Whisper (use WASM on emulators)
+- **Cloud polish on save** (planned) — optional one-time transcript cleanup after saving an on-device note; opt-in + quota; see [ON_DEVICE_PHASE_F.md](ON_DEVICE_PHASE_F.md#planned-later--optional-cloud-polish-on-save)
+- Always-on ambient listening
+- PWA install prompt (by design)
+
+---
+
+## Integrations
+
+- **Microsoft Teams bot** — scaffold behind `NEXT_PUBLIC_TEAMS_BOT_INTEGRATION_ENABLED`
 
 ---
 
 ## Admin (operators)
 
-- Web dashboard: **`/admin/`** — Google sign-in + email allowlist
-- See **[ADMIN.md](ADMIN.md)** for setup, callables, and Stripe roadmap
+- **`/admin/`** — allowlist operators · [ADMIN.md](ADMIN.md)
 
 ---
 
@@ -245,14 +304,13 @@ Build: `npm run cap:sync` → `npm run cap:android` → signed APK. See [ANDROID
 
 | Doc | Topic |
 |-----|--------|
-| [ADMIN.md](ADMIN.md) | Admin dashboard setup & security |
+| [FEATURES.md](FEATURES.md) | This file |
 | [PHASES.md](PHASES.md) | Master phase checklist |
 | [ROADMAP.md](ROADMAP.md) | Vision & competitors |
-| [PHASE0.md](PHASE0.md)–[PHASE11.md](PHASE11.md) | Per-phase implementation notes |
+| [ON_DEVICE_PHASE_A–F](ON_DEVICE_PHASE_F.md) | Whisper-first rollout |
 | [CAPACITOR.md](CAPACITOR.md) | Android dev commands |
-| [NETWORK_TROUBLESHOOTING.md](NETWORK_TROUBLESHOOTING.md) | Starlink, Web Speech, cloud STT |
-| [ANDROID_RELEASE.md](ANDROID_RELEASE.md) | Signed APK & Play checklist |
+| [ANDROID_RELEASE.md](ANDROID_RELEASE.md) | Signed APK |
 
 ---
 
-*Last updated: Migiude v1 (Phases 0–11).*
+*Last updated: Ude v1 + on-device Phases A–F (Whisper WASM, native Android, explainers).*

@@ -2,10 +2,11 @@
 
 import type { CloudSttUiPhase } from "@/hooks/use-cloud-transcription";
 import type { TranscriptHighlight } from "@/lib/data/types";
-import type { TranscriptionMode, TranscriptChunk } from "@/lib/speech/types";
+import type { LocalSttEngine, TranscriptionMode, TranscriptChunk } from "@/lib/speech/types";
 import { cn } from "@/lib/utils";
-import { CheckSquare, Star, StarOff } from "lucide-react";
+import { CheckSquare, Pencil, Star, StarOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { LocalTodoHint } from "@/lib/speech/local-todo-hints";
 
 const SPEAKER_COLORS = [
   "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200",
@@ -14,7 +15,7 @@ const SPEAKER_COLORS = [
   "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200",
 ];
 
-export type LineAction = "highlight" | "todo" | "both";
+export type LineAction = "highlight" | "todo" | "both" | "correct";
 
 type IpodRecordingDisplayProps = {
   title: string;
@@ -24,12 +25,21 @@ type IpodRecordingDisplayProps = {
   isListening: boolean;
   isPaused: boolean;
   transcriptionMode: TranscriptionMode;
+  localEngine?: LocalSttEngine;
+  whisperModelLoadProgress?: number | null;
+  whisperModelLoadLabel?: string | null;
+  localSttFallbackNotice?: string | null;
+  whisperVadSilent?: boolean;
   capturePhase?: CloudSttUiPhase;
   highlights: TranscriptHighlight[];
   lineActionMsg?: string | null;
   saveBusy?: boolean;
   error?: string | null;
   onLineAction: (chunk: TranscriptChunk, action: LineAction) => void;
+  onCorrectChunk?: (chunk: TranscriptChunk, newText: string) => void;
+  todoHints?: LocalTodoHint[];
+  onAddTodoHint?: (hint: LocalTodoHint) => void;
+  onDismissTodoHint?: (hintId: string) => void;
   onDiscard: () => void;
   onContinue: () => void;
   onSave: () => void;
@@ -43,18 +53,29 @@ export function IpodRecordingDisplay({
   isListening,
   isPaused,
   transcriptionMode,
+  localEngine,
+  whisperModelLoadProgress,
+  whisperModelLoadLabel,
+  localSttFallbackNotice,
+  whisperVadSilent,
   capturePhase,
   highlights,
   lineActionMsg,
   saveBusy,
   error,
   onLineAction,
+  onCorrectChunk,
+  todoHints = [],
+  onAddTodoHint,
+  onDismissTodoHint,
   onDiscard,
   onContinue,
   onSave,
 }: IpodRecordingDisplayProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [correctingId, setCorrectingId] = useState<string | null>(null);
+  const [correctDraft, setCorrectDraft] = useState("");
   const interim = interimText.trim();
   const hasContent = chunks.length > 0 || interim.length > 0;
   const highlightedIds = new Set(
@@ -70,7 +91,19 @@ export function IpodRecordingDisplay({
       ? capturePhase === "transcribing"
         ? "Transcribing…"
         : "Listening · cloud"
-      : "Listening · on-device"
+      : localEngine === "whisper-native"
+        ? whisperModelLoadProgress != null
+          ? `Loading native model… ${Math.round(whisperModelLoadProgress)}%`
+          : interim
+            ? "Listening · native Whisper"
+            : "Listening · native Whisper"
+        : localEngine === "whisper"
+          ? whisperModelLoadProgress != null
+            ? `Loading model… ${Math.round(whisperModelLoadProgress)}%`
+            : whisperVadSilent
+              ? "Paused · silence"
+              : "Listening · on-device Whisper"
+          : "Listening · browser speech"
     : isPaused
       ? "Paused"
       : "Ready";
@@ -95,6 +128,16 @@ export function IpodRecordingDisplay({
         {subtitle ? (
           <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
             {subtitle}
+          </p>
+        ) : null}
+        {localSttFallbackNotice ? (
+          <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+            {localSttFallbackNotice}
+          </p>
+        ) : null}
+        {whisperModelLoadLabel && whisperModelLoadProgress != null ? (
+          <p className="mt-1 truncate text-[10px] text-zinc-500">
+            {whisperModelLoadLabel}
           </p>
         ) : null}
       </div>
@@ -177,6 +220,18 @@ export function IpodRecordingDisplay({
                       <button
                         type="button"
                         onClick={() => {
+                          setCorrectingId(chunk.id);
+                          setCorrectDraft(chunk.text);
+                          setSelectedId(chunk.id);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-100"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Fix text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
                           void onLineAction(chunk, "both");
                           setSelectedId(null);
                         }}
@@ -185,6 +240,37 @@ export function IpodRecordingDisplay({
                         <StarOff className="h-3 w-3" />
                         Both
                       </button>
+                    </div>
+                  ) : null}
+                  {correctingId === chunk.id && onCorrectChunk ? (
+                    <div className="mt-2 space-y-1.5 pl-1">
+                      <input
+                        type="text"
+                        value={correctDraft}
+                        onChange={(e) => setCorrectDraft(e.target.value)}
+                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-950"
+                        aria-label="Corrected text"
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          className="rounded-full bg-teal-600 px-2.5 py-1 text-[10px] font-medium text-white"
+                          onClick={() => {
+                            onCorrectChunk(chunk, correctDraft);
+                            setCorrectingId(null);
+                            setSelectedId(null);
+                          }}
+                        >
+                          Save correction
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-zinc-300 px-2.5 py-1 text-[10px] dark:border-zinc-600"
+                          onClick={() => setCorrectingId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   ) : null}
                 </div>

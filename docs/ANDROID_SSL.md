@@ -18,7 +18,7 @@ Avast → **Menu → Settings → Privacy → Web Shield** → turn off **HTTPS 
 Run **PowerShell as Administrator** from the project folder:
 
 ```powershell
-cd c:\Users\plyon\Documents\chapappteams\migiude-1
+cd c:\Users\plyon\Documents\chapappteams\Ude-1
 .\scripts\fix-java-ssl.ps1
 ```
 

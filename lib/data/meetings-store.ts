@@ -18,10 +18,34 @@ import type { MeetingRecord } from "@/lib/data/types";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import { isLocalOnlyMode } from "@/lib/settings/preferences";
 
+const listenersByUser = new Map<string, Set<() => void>>();
+
+function notifyMeetingsChanged(userId: string): void {
+  const set = listenersByUser.get(userId);
+  if (!set) return;
+  for (const listener of set) listener();
+}
+
 function meetingsCollection(userId: string) {
   const db = getFirebaseDb();
   if (!db) return null;
   return collection(db, "users", userId, "meetings");
+}
+
+async function syncRemoteMeetingsToLocal(
+  userId: string,
+  remoteMeetings: MeetingRecord[],
+): Promise<void> {
+  const remoteIds = new Set(remoteMeetings.map((m) => m.id));
+  const local = await listLocalMeetings(userId);
+  await Promise.all(
+    local
+      .filter((m) => !remoteIds.has(m.id))
+      .map((m) => deleteLocalMeeting(userId, m.id)),
+  );
+  await Promise.all(
+    remoteMeetings.map((m) => upsertLocalMeeting(userId, m)),
+  );
 }
 
 export function subscribeMeetings(
@@ -29,27 +53,46 @@ export function subscribeMeetings(
   onData: (meetings: MeetingRecord[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
+  const refresh = () => {
+    void listLocalMeetings(userId).then(onData);
+  };
+
+  refresh();
+
+  let set = listenersByUser.get(userId);
+  if (!set) {
+    set = new Set();
+    listenersByUser.set(userId, set);
+  }
+  set.add(refresh);
+
   const col = meetingsCollection(userId);
-
-  void listLocalMeetings(userId).then(onData);
-
   if (!col || isLocalOnlyMode()) {
-    return () => {};
+    return () => {
+      set?.delete(refresh);
+    };
   }
 
   const q = query(col, orderBy("startedAt", "desc"));
-  return onSnapshot(
+  const unsubFirestore = onSnapshot(
     q,
     (snapshot) => {
       const meetings = snapshot.docs.map(
         (d) => ({ id: d.id, ...d.data() }) as MeetingRecord,
       );
-      void Promise.all(meetings.map((m) => upsertLocalMeeting(userId, m))).then(
-        () => onData(meetings),
-      );
+      void syncRemoteMeetingsToLocal(userId, meetings)
+        .then(() => onData(meetings))
+        .catch((err) =>
+          onError?.(err instanceof Error ? err : new Error(String(err))),
+        );
     },
     (err) => onError?.(err),
   );
+
+  return () => {
+    set?.delete(refresh);
+    unsubFirestore();
+  };
 }
 
 export async function saveMeeting(
@@ -63,6 +106,7 @@ export async function saveMeeting(
     await setDoc(doc(col, meeting.id), meetingFirestorePayload(meeting));
   }
 
+  notifyMeetingsChanged(userId);
   return meeting;
 }
 
@@ -75,6 +119,7 @@ export async function removeMeeting(
   if (col && !isLocalOnlyMode()) {
     await deleteDoc(doc(col, meetingId));
   }
+  notifyMeetingsChanged(userId);
 }
 
 export function createMeetingId(): string {
@@ -97,5 +142,8 @@ function meetingFirestorePayload(meeting: MeetingRecord) {
     agenda: meeting.agenda ?? null,
     minutes: meeting.minutes ?? null,
     templateId: meeting.templateId ?? null,
+    seriesTag: meeting.seriesTag ?? null,
+    groupId: meeting.groupId ?? null,
+    cloudSyncMeta: meeting.cloudSyncMeta ?? null,
   };
 }

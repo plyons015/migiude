@@ -3,10 +3,11 @@ import {
   pickMimeType,
 } from "@/lib/speech/cloud-audio-capture";
 import {
-  MAX_SEGMENT_SEC,
   MIN_SEGMENT_SEC,
   MIN_UPLOAD_BYTES,
+  QUICK_VAD_PROFILE,
   VAD_POLL_MS,
+  type VadTimingProfile,
 } from "@/lib/speech/vad/vad-config";
 import { EnergyVad, readAnalyserLevel } from "@/lib/speech/vad/energy-vad";
 
@@ -32,16 +33,22 @@ export class VadAudioCapture {
   private segmentBlob: Blob | null = null;
   private mimeType = "audio/webm";
   private active = false;
-  private vad = new EnergyVad();
   private segmentStartedAt = 0;
   private pollTimer: number | null = null;
   private phase: CloudCapturePhase = "idle";
   private endingSegment = false;
 
+  private vad: EnergyVad;
+  private maxSegmentSec: number;
+
   constructor(
     private readonly onSegment: VadSegmentHandler,
     private readonly onPhaseChange?: (phase: CloudCapturePhase) => void,
-  ) {}
+    timing: VadTimingProfile = QUICK_VAD_PROFILE,
+  ) {
+    this.vad = new EnergyVad(timing);
+    this.maxSegmentSec = timing.maxSegmentSec;
+  }
 
   getPhase(): CloudCapturePhase {
     return this.phase;
@@ -110,7 +117,7 @@ export class VadAudioCapture {
     if (
       this.segmentRecorder &&
       this.segmentStartedAt > 0 &&
-      (Date.now() - this.segmentStartedAt) / 1000 >= MAX_SEGMENT_SEC
+      (Date.now() - this.segmentStartedAt) / 1000 >= this.maxSegmentSec
     ) {
       await this.finishSegment(true);
       if (this.active && this.vad.getPhase() === "speech") {

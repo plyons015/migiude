@@ -1,14 +1,29 @@
 "use client";
 
 import { App } from "@capacitor/app";
+import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { useEffect } from "react";
-import { isNativePlatform } from "@/lib/capacitor/platform";
+import {
+  getCapacitorPlatform,
+  isNativePlatform,
+} from "@/lib/capacitor/platform";
+import { initFirebaseClient } from "@/lib/firebase/client";
+import { isFirebaseConfigured } from "@/lib/env/client";
 import { reportClientError } from "@/lib/telemetry/report-client-error";
 
 export function CapacitorProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isNativePlatform()) return;
+
+    if (isFirebaseConfigured()) {
+      initFirebaseClient();
+    }
+
+    void SplashScreen.hide().catch(() => undefined);
+    const splashFallback = window.setTimeout(() => {
+      void SplashScreen.hide().catch(() => undefined);
+    }, 5000);
 
     void (async () => {
       try {
@@ -25,6 +40,8 @@ export function CapacitorProvider({ children }: { children: React.ReactNode }) {
         void App.exitApp();
       });
     })();
+
+    return () => window.clearTimeout(splashFallback);
   }, []);
 
   useEffect(() => {
@@ -32,7 +49,7 @@ export function CapacitorProvider({ children }: { children: React.ReactNode }) {
       void reportClientError({
         message: event.message || "window.error",
         stack: event.error?.stack,
-        platform: "android",
+        platform: getCapacitorPlatform(),
         route: typeof window !== "undefined" ? window.location.pathname : undefined,
       });
     };
@@ -44,7 +61,7 @@ export function CapacitorProvider({ children }: { children: React.ReactNode }) {
       void reportClientError({
         message: reason.slice(0, 1000),
         stack: event.reason instanceof Error ? event.reason.stack : undefined,
-        platform: "android",
+        platform: getCapacitorPlatform(),
         route: typeof window !== "undefined" ? window.location.pathname : undefined,
       });
     };

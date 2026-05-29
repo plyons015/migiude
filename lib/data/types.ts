@@ -8,6 +8,9 @@ export type TranscriptHighlight = {
   segmentId?: string;
 };
 
+/** Where capture was processed — Notepad (local) vs Meetings (cloud) lanes. */
+export type ProcessingScope = "local" | "cloud";
+
 export type NoteRecord = {
   id: string;
   title: string;
@@ -16,6 +19,13 @@ export type NoteRecord = {
   mindMapSource?: string;
   source: "manual" | "listen" | "meeting";
   meetingId?: string;
+  /** Relates note to a theme across meetings (v1 topic series). */
+  seriesTag?: string;
+  /** Future: shared group workspace. */
+  groupId?: string;
+  processingScope?: ProcessingScope;
+  /** Placeholder for collaboration + share metadata. */
+  cloudSyncMeta?: import("@/lib/collaboration/types").CloudSyncMeta;
   tags?: string[];
   highlights?: TranscriptHighlight[];
   createdAt: number;
@@ -33,6 +43,9 @@ export type TodoRecord = {
   dueAt?: number;
   noteId?: string;
   meetingId?: string;
+  /** Future: group-shared follow-up. */
+  groupId?: string;
+  processingScope?: ProcessingScope;
   reminderNotified?: boolean;
   /** Phase 9 — kanban-style status (falls back from completed if unset). */
   status?: TodoStatus;
@@ -95,11 +108,22 @@ export type MeetingRecord = {
   templateId?: string;
   /** Polished minutes / narrative (Script tab). */
   minutes?: string;
+  /** Topic series — link related meetings (v1 tag; groups later). */
+  seriesTag?: string;
+  /** Future: primary group this meeting is shared with. */
+  groupId?: string;
+  /** Placeholder for collaboration + share metadata. */
+  cloudSyncMeta?: import("@/lib/collaboration/types").CloudSyncMeta;
 };
+
+import type { FriendRecord } from "@/lib/groups/types";
+import type { GroupRecord } from "@/lib/groups/types";
 
 export type LocalVault = {
   notes: NoteRecord[];
   todos: TodoRecord[];
   meetings: MeetingRecord[];
   appends: MeetingAppendRecord[];
+  friends: FriendRecord[];
+  groups: GroupRecord[];
 };

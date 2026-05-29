@@ -1,6 +1,6 @@
-# migiude
+# Ude
 
-Privacy-first voice AI assistant.
+Privacy-first voice AI assistant (package id `com.migiude.app`; repo folder `migiude-1`).
 
 Built as web app (Next.js) for easy development, wrapped as Android app via Capacitor.
 
@@ -33,9 +33,18 @@ See [docs/CAPACITOR.md](docs/CAPACITOR.md).
 
 Full checklist: [docs/PHASE0.md](docs/PHASE0.md).
 
+## On-device voice (Phases A–F)
+
+**Tap** the dashboard mic for private Whisper (WASM on web; native whisper.cpp on Android arm64). **Hold** for meeting-grade cloud STT with speaker labels.
+
+- [docs/PHASE1.md](docs/PHASE1.md) — Phase A (WASM Whisper)
+- [docs/ON_DEVICE_PHASE_B.md](docs/ON_DEVICE_PHASE_B.md) through [docs/ON_DEVICE_PHASE_F.md](docs/ON_DEVICE_PHASE_F.md)
+- [docs/FEATURES.md](docs/FEATURES.md) — full feature catalog
+- Help guide: `/help/on-device-modes/`
+
 ## Phase 1 — Listen mode
 
-Voice transcription at [/listen/](http://localhost:3000/listen/). See [docs/PHASE1.md](docs/PHASE1.md).
+Voice capture on [/dashboard/](http://localhost:3000/dashboard/) (primary). See [docs/PHASE1.md](docs/PHASE1.md).
 
 ## Phase 2 — AI (Gemini + Grok)
 

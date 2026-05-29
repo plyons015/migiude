@@ -27,7 +27,7 @@ Web Firebase (Auth, Firestore, Functions) still works in the WebView. **Do not**
 
 **Path B — Enable push (FCM)**
 
-1. Add `android/app/google-services.json` from Firebase Console (package `com.migiude.app`).
+1. Add `android/app/google-services.json` from Firebase Console (package `com.Ude.app`).
 2. Remove the `<provider … FirebaseInitProvider … tools:node="remove" />` block from `AndroidManifest.xml`.
 3. Set `NEXT_PUBLIC_ENABLE_FCM=true` in `.env.local`.
 4. `npm run cap:sync` and rebuild.
@@ -45,7 +45,7 @@ The folder `android/app/src/main/assets/public` is **generated** by `cap sync`, 
 **Fix — every time you change the web app:**
 
 ```powershell
-cd c:\Users\plyon\Documents\chapappteams\migiude-1
+cd c:\Users\plyon\Documents\chapappteams\Ude-1
 npm run cap:sync
 ```
 
@@ -60,7 +60,7 @@ The Push Notifications plugin pulls in Firebase Messaging. Without `android/app/
 **Fix A (recommended for push):**
 
 1. Firebase Console → Project settings → Your apps → Android  
-2. Package name: `com.migiude.app`  
+2. Package name: `com.Ude.app`  
 3. Download `google-services.json` → save as `android/app/google-services.json`  
 4. Run `npm run cap:sync` and rebuild in Android Studio  
 
@@ -74,13 +74,13 @@ In Android Studio:
 
 1. **View → Tool Windows → Logcat**  
 2. Select your phone  
-3. Filter: `package:com.migiude.app` or level **Error**  
+3. Filter: `package:com.Ude.app` or level **Error**  
 4. Reproduce the crash and read the red stack trace  
 
 Or with platform tools on PATH:
 
 ```powershell
-adb logcat -d | Select-String -Pattern "FATAL|AndroidRuntime|migiude"
+adb logcat -d | Select-String -Pattern "FATAL|AndroidRuntime|Ude"
 ```
 
 ---
@@ -99,7 +99,7 @@ In Android Studio:
 2. **Build → Clean Project**  
 3. **Run** on device (USB debugging on)  
 
-On the phone: uninstall old **Migiude** first if the crash persists (Settings → Apps → Migiude → Uninstall), then install again from Studio.
+On the phone: uninstall old **Ude** first if the crash persists (Settings → Apps → Ude → Uninstall), then install again from Studio.
 
 ---
 
@@ -158,7 +158,7 @@ Also enable **Anonymous** sign-in: Firebase Console → Authentication → Sign-
 FATAL EXCEPTION
 ```
 
-Copy 15–20 lines **above** that, including the line with `at com.migiude...` or `chromium` or `Firebase`.
+Copy 15–20 lines **above** that, including the line with `at com.Ude...` or `chromium` or `Firebase`.
 
 **Quick checks:**
 

@@ -6,10 +6,25 @@ import type { SttResponse } from "./types";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-const STT_PROMPT = `Transcribe only words clearly spoken in this microphone audio clip.
+const STT_PROMPT_QUICK = `Transcribe only words clearly spoken in this microphone audio clip.
 If silent or unintelligible, return an empty segments list.
 Do not invent dialogue, meetings, interviews, or names not heard in the audio.
 Use speakerId 1 for a single speaker.`;
+
+const STT_PROMPT_MEETING = `Transcribe only words clearly spoken in this microphone audio clip.
+If silent or unintelligible, return an empty segments list.
+Do not invent dialogue, meetings, interviews, or names not heard in the audio.
+Speaker labels (speakerId 1–8):
+- One clear voice → speakerId 1 only.
+- Multiple distinct voices (different pitch/timbre, or clear turn-taking) → use 1, 2, 3… consistently within this clip for each voice.
+- Do not merge different speakers into one id unless they sound like the same person.
+- Overlapping or unclear audio: transcribe what you hear; split speakers only when reasonably confident.`;
+
+export type SttContext = "quick" | "meeting";
+
+function sttPromptFor(context: SttContext): string {
+  return context === "meeting" ? STT_PROMPT_MEETING : STT_PROMPT_QUICK;
+}
 
 type GeminiBody = {
   error?: { message?: string };
@@ -80,6 +95,7 @@ export async function transcribeAudioWithGemini(
   mimeType: string,
   lang: string,
   audioDurationSec = 0,
+  context: SttContext = "quick",
 ): Promise<SttResponse> {
   const apiKey = getGeminiApiKey();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -88,7 +104,7 @@ export async function transcribeAudioWithGemini(
     {
       role: "user",
       parts: [
-        { text: `${STT_PROMPT}\nLanguage: ${lang}` },
+        { text: `${sttPromptFor(context)}\nLanguage: ${lang}` },
         {
           inlineData: {
             mimeType: mimeType || "audio/webm",

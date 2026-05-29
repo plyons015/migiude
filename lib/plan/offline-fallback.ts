@@ -25,6 +25,8 @@ export function offlinePlanAndUsageFallback(): PlanAndUsageResponse {
       aiCalls: 0,
       cloudSttMinutes: 0,
       cloudSttChunksToday: 0,
+      teamsBotMinutes: 0,
+      teamsBotJoins: 0,
     },
     limits,
     display: { id: plan, ...display },

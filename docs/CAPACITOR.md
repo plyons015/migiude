@@ -1,6 +1,6 @@
 # Capacitor (Android)
 
-Migiude ships as a static Next.js export in `out/`, wrapped by Capacitor for Android.
+Ude ships as a static Next.js export in `out/`, wrapped by Capacitor for Android.
 
 ## Gradle SSL error (PKIX / certification path)
 

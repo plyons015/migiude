@@ -10,6 +10,8 @@ import {
   type MeetingInsights,
 } from "@/lib/ai/parse-meeting-insights";
 import { saveInsightsTodos } from "@/lib/ai/save-insights-todos";
+import { archiveUrl } from "@/lib/archive/routes";
+import { meetingsUrl } from "@/lib/meetings/routes";
 import { saveNote } from "@/lib/data/notes-store";
 import { parseTodosFromMarkdown } from "@/lib/data/parse-todos";
 import { signInAnonymousUser } from "@/lib/firebase/auth";
@@ -280,7 +282,7 @@ export function AiActionsPanel({
 
           {uid ? (
             <Link
-              href="/notes/?tab=todos"
+              href={meetingsUrl({ view: "board" })}
               className="text-xs text-emerald-600 underline dark:text-emerald-400"
             >
               View todos

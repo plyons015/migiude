@@ -1,10 +1,11 @@
 "use client";
 
 import { useCloudTranscription } from "@/hooks/use-cloud-transcription";
-import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { useLocalTranscription } from "@/hooks/use-local-transcription";
 import { useAppSettings } from "@/hooks/use-app-settings";
 import { isMediaRecorderSupported } from "@/lib/speech/cloud-audio-capture";
 import { isWebSpeechSupported } from "@/lib/speech/web-speech";
+import { isWhisperWorkerSupported } from "@/lib/speech/whisper-worker-client";
 import type { TranscriptionMode } from "@/lib/speech/types";
 import {
   getTranscriptionModeForContext,
@@ -31,6 +32,7 @@ export type StartListeningOptions = {
 export function useTranscription(
   idleContext: TranscriptionContext = "quick",
   langOverride?: string,
+  options?: { personalize?: (text: string) => string },
 ) {
   const { localOnly, meetingTranscriptionMode, quickTranscriptionMode } =
     useAppSettings();
@@ -53,7 +55,9 @@ export function useTranscription(
   const [captureWarning, setCaptureWarning] = useState<string | null>(null);
   const browserStartedAtRef = useRef<number | null>(null);
 
-  const browser = useSpeechRecognition(langOverride);
+  const browser = useLocalTranscription(langOverride, {
+    personalize: options?.personalize,
+  });
   const cloud = useCloudTranscription(langOverride);
 
   const browserActive =
@@ -74,6 +78,7 @@ export function useTranscription(
   const capabilities = useMemo(
     () => ({
       webSpeech: isWebSpeechSupported(),
+      whisper: isWhisperWorkerSupported(),
       cloudStt: isMediaRecorderSupported(),
     }),
     [],
@@ -82,7 +87,9 @@ export function useTranscription(
   const startListening = useCallback(
     async (options?: StartListeningOptions) => {
       const context = options?.context ?? idleContext;
-      const mode = options?.mode ?? resolveMode(context);
+      const requested = options?.mode ?? resolveMode(context);
+      const mode =
+        localOnly && requested === "cloud" ? "browser" : requested;
       setActiveSessionMode(mode);
       setCaptureWarning(null);
 
@@ -97,7 +104,9 @@ export function useTranscription(
 
       try {
         if (mode === "cloud") {
-          await cloud.startListening();
+          await cloud.startListening({
+            meeting: context === "meeting",
+          });
         } else {
           browserStartedAtRef.current = Date.now();
           await browser.startListening();
@@ -117,7 +126,7 @@ export function useTranscription(
     if (mode === "cloud") {
       cloud.stopListening();
     } else {
-      browser.stopListening();
+      void browser.stopListening();
       const started = browserStartedAtRef.current;
       browserStartedAtRef.current = null;
       if (started != null) {
@@ -152,5 +161,11 @@ export function useTranscription(
     startListening,
     stopListening,
     captureWarning,
+    localEngine: browser.localEngine,
+    localSttFallbackNotice: browser.fallbackNotice,
+    whisperModelLoadProgress: browser.whisperModelLoadProgress,
+    whisperModelLoadLabel: browser.whisperModelLoadLabel,
+    whisperVadSilent: browser.whisperVadSilent,
+    updateChunkText: browser.updateChunkText,
   };
 }

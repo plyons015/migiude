@@ -9,7 +9,15 @@ function isPublicAppPath(path: string): boolean {
     path === "/admin" ||
     path.startsWith("/admin/") ||
     path === "/setup" ||
-    path.startsWith("/setup/")
+    path.startsWith("/setup/") ||
+    path === "/onboarding" ||
+    path.startsWith("/onboarding/") ||
+    path === "/help" ||
+    path.startsWith("/help/") ||
+    path === "/accept" ||
+    path.startsWith("/accept/") ||
+    path === "/integrations/microsoft/callback" ||
+    path.startsWith("/integrations/microsoft/callback/")
   );
 }
 

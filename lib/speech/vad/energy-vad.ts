@@ -1,11 +1,12 @@
 import {
   NOISE_FLOOR_MIN,
-  SPEECH_END_MS,
+  QUICK_VAD_PROFILE,
   SPEECH_END_RATIO,
   SPEECH_START_FRAMES,
   SPEECH_START_MIN,
   SPEECH_START_MULTIPLIER,
   WARMUP_MS,
+  type VadTimingProfile,
 } from "./vad-config";
 
 export type VadPhase = "warmup" | "waiting" | "speech" | "ending";
@@ -22,6 +23,8 @@ export class EnergyVad {
   private silenceSince = 0;
   private noiseFloor = NOISE_FLOOR_MIN;
   private noiseSamples: number[] = [];
+
+  constructor(private readonly timing: VadTimingProfile = QUICK_VAD_PROFILE) {}
 
   begin(now = Date.now()): void {
     this.phase = "warmup";
@@ -85,7 +88,7 @@ export class EnergyVad {
         if (this.silenceSince === 0) {
           this.silenceSince = now;
           this.phase = "ending";
-        } else if (now - this.silenceSince >= SPEECH_END_MS) {
+        } else if (now - this.silenceSince >= this.timing.speechEndMs) {
           this.phase = "waiting";
           this.speechFrames = 0;
           this.silenceSince = 0;

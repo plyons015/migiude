@@ -12,16 +12,16 @@ import { allowAnonymousSignIn } from "@/lib/env/auth-flags";
 import { MfaSignInChallenge } from "@/components/auth/mfa-sign-in-challenge";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Mode = "signin" | "signup" | "reset";
 
 const inputClass =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900";
 
-export function AuthScreen() {
-  const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
+export function AuthScreen({ defaultEmail }: { defaultEmail?: string } = {}) {
+  const [mode, setMode] = useState<Mode>(defaultEmail ? "signup" : "signin");
+  const [email, setEmail] = useState(defaultEmail ?? "");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,6 +30,13 @@ export function AuthScreen() {
   const [mfaResolver, setMfaResolver] = useState<ReturnType<
     typeof getMfaResolver
   > | null>(null);
+
+  useEffect(() => {
+    if (defaultEmail) {
+      setEmail(defaultEmail);
+      setMode("signup");
+    }
+  }, [defaultEmail]);
 
   const clearStatus = () => {
     setError(null);

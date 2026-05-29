@@ -18,7 +18,15 @@ const RecordingForeground = registerPlugin<RecordingForegroundPlugin>(
 /** Request Android RECORD_AUDIO before Web Speech / MediaRecorder. */
 export async function ensureRecordingMicPermission(): Promise<void> {
   if (!isAndroid()) return;
-  await RecordingForeground.ensureMicPermission();
+  try {
+    await RecordingForeground.ensureMicPermission();
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Microphone permission denied. Open Settings → Apps → Ude → Permissions.";
+    throw new Error(message);
+  }
 }
 
 /** Pause other apps' playback and show the recording notification (Android). */

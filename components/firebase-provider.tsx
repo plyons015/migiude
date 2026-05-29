@@ -6,7 +6,14 @@ import { useEffect } from "react";
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (!isFirebaseConfigured()) return;
+    if (!isFirebaseConfigured()) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[Firebase] Not configured — auth, Firestore sync, and cloud STT are disabled.",
+        );
+      }
+      return;
+    }
     initFirebaseClient();
   }, []);
 

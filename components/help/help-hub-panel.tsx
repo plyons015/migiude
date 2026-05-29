@@ -3,6 +3,7 @@
 import { HelpGuidePanel } from "@/components/help/help-guide-panel";
 import { HelpMessagesPanel } from "@/components/help/help-messages-panel";
 import { Button } from "@/components/ui/button";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { BookOpen, MessageCircle, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -12,6 +13,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   initialTab?: Tab;
+  initialArticleSlug?: string | null;
   unreadCount?: number;
 };
 
@@ -19,30 +21,39 @@ export function HelpHubPanel({
   open,
   onClose,
   initialTab = "guide",
+  initialArticleSlug = null,
   unreadCount = 0,
 }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [articleSlug, setArticleSlug] = useState<string | null>(
+    initialArticleSlug,
+  );
 
   useEffect(() => {
-    if (open) setTab(initialTab);
-  }, [open, initialTab]);
+    if (open) {
+      setTab(initialTab);
+      setArticleSlug(initialArticleSlug);
+    }
+  }, [open, initialTab, initialArticleSlug]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        aria-label="Close help"
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="help-hub-title"
-        className="relative z-10 flex max-h-[min(85vh,640px)] w-full max-w-lg flex-col rounded-2xl border border-zinc-200 bg-background shadow-xl dark:border-zinc-700"
-      >
+    <ModalPortal active={open}>
+      <div className="fixed inset-0 z-[200] overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+          <button
+            type="button"
+            className="fixed inset-0 bg-black/40"
+            aria-label="Close help"
+            onClick={onClose}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-hub-title"
+            className="relative z-10 flex max-h-[min(85dvh,640px)] w-full max-w-lg min-h-0 flex-col rounded-2xl border border-zinc-200 bg-background shadow-xl dark:border-zinc-700"
+          >
         <header className="flex items-start justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
           <div>
             <h2 id="help-hub-title" className="text-lg font-semibold">
@@ -97,12 +108,17 @@ export function HelpHubPanel({
 
         <div className="flex-1 overflow-y-auto p-4">
           {tab === "guide" ? (
-            <HelpGuidePanel />
+            <HelpGuidePanel
+              articleSlug={articleSlug}
+              onOpenArticle={setArticleSlug}
+            />
           ) : (
             <HelpMessagesPanel />
           )}
         </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }

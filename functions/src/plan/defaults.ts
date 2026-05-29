@@ -10,6 +10,10 @@ export type PlanLimitsConfig = {
   aiFairUse: boolean;
   prioritySupport: boolean;
   usageDashboard: boolean;
+  teamsBotEnabled: boolean;
+  teamsBotMinutesPerMonth: number | null;
+  teamsBotJoinsPerMonth: number | null;
+  teamsBotCalendarAutoJoin: boolean;
 };
 
 export type PlanDisplayConfig = {
@@ -19,6 +23,7 @@ export type PlanDisplayConfig = {
   tagline: string;
   cloudSttLabel: string;
   aiLabel: string;
+  teamsBotLabel?: string;
   bullets: string[];
 };
 
@@ -48,6 +53,10 @@ export const DEFAULT_LAUNCH_PLAN_CONFIG: LaunchPlanConfig = {
         aiFairUse: false,
         prioritySupport: false,
         usageDashboard: false,
+        teamsBotEnabled: false,
+        teamsBotMinutesPerMonth: null,
+        teamsBotJoinsPerMonth: null,
+        teamsBotCalendarAutoJoin: false,
       },
       display: {
         name: "Free",
@@ -74,6 +83,10 @@ export const DEFAULT_LAUNCH_PLAN_CONFIG: LaunchPlanConfig = {
         aiFairUse: false,
         prioritySupport: true,
         usageDashboard: true,
+        teamsBotEnabled: true,
+        teamsBotMinutesPerMonth: 600,
+        teamsBotJoinsPerMonth: 30,
+        teamsBotCalendarAutoJoin: false,
       },
       display: {
         name: "Pro",
@@ -82,9 +95,11 @@ export const DEFAULT_LAUNCH_PLAN_CONFIG: LaunchPlanConfig = {
         tagline: "Generous monthly limits for everyday professional use.",
         cloudSttLabel: "1,000 cloud transcription minutes / month",
         aiLabel: "200 AI actions / month",
+        teamsBotLabel: "Teams meeting bot — 600 bot-min / month",
         bullets: [
           "1,000 cloud transcription minutes per month",
           "200 AI actions per month",
+          "Teams meeting bot joins your calls (Otter-style)",
           "Full sync across Web + Android",
           "Daily recap, exports, usage dashboard",
           "Priority email support (48h target)",
@@ -100,6 +115,10 @@ export const DEFAULT_LAUNCH_PLAN_CONFIG: LaunchPlanConfig = {
         aiFairUse: true,
         prioritySupport: true,
         usageDashboard: true,
+        teamsBotEnabled: true,
+        teamsBotMinutesPerMonth: 2400,
+        teamsBotJoinsPerMonth: 120,
+        teamsBotCalendarAutoJoin: true,
       },
       display: {
         name: "Power",
@@ -108,9 +127,11 @@ export const DEFAULT_LAUNCH_PLAN_CONFIG: LaunchPlanConfig = {
         tagline: "High-volume fair use for full workdays and heavy AI.",
         cloudSttLabel: "~3,000 cloud transcription minutes / month (fair use)",
         aiLabel: "High-volume AI processing (fair use)",
+        teamsBotLabel: "Teams bot — ~2,400 bot-min / mo + calendar auto-join (beta)",
         bullets: [
           "~3,000 cloud transcription minutes per month (fair use)",
           "Generous AI processing (fair use)",
+          "Teams meeting bot with higher limits + calendar auto-join (beta)",
           "Higher daily cloud burst for long sessions",
           "24h priority support, longer history, beta features first",
         ],

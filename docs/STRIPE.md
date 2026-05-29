@@ -1,6 +1,6 @@
 # Stripe setup (Pro & Power)
 
-Migiude uses **Stripe Checkout** for web subscriptions. Plan limits are enforced in Firebase; Stripe only handles payment and sets `userProfiles.plan` via webhook.
+Ude uses **Stripe Checkout** for web subscriptions. Plan limits are enforced in Firebase; Stripe only handles payment and sets `userProfiles.plan` via webhook.
 
 ## Products in Stripe Dashboard
 
@@ -24,7 +24,7 @@ Copy each price’s **`price_…` ID** from Stripe → Products → click price.
 | `STRIPE_PRICE_POWER_MONTHLY` | `price_1TaOVKPf2NUElfiRvgDGMAZA` |
 | `STRIPE_PRICE_POWER_YEARLY` | `price_1TaOWoPf2NUElfiRblWy8e9E` |
 
-- **Production deploy:** `functions/.env.migiude-app-plyons015`
+- **Production deploy:** `functions/.env.Ude-app-plyons015`
 - **Emulators:** `functions/.secret.local` (same four lines)
 
 ### Where to find the two Stripe *secrets*
@@ -90,7 +90,7 @@ Or run `.\scripts\set-stripe-secrets.ps1` and answer **y** only on the webhook s
 After deploy, add endpoint in Stripe → Developers → Webhooks:
 
 ```
-https://us-central1-migiude-app-plyons015.cloudfunctions.net/stripeWebhook
+https://us-central1-Ude-app-plyons015.cloudfunctions.net/stripeWebhook
 ```
 
 Listen for:

@@ -1,7 +1,7 @@
 "use client";
 
 import { MeetingRoomView } from "@/components/meetings/meeting-room-view";
-import Link from "next/link";
+import { MeetingsHubView } from "@/components/meetings/meetings-hub-view";
 import { useSearchParams } from "next/navigation";
 
 type MeetingDetailViewProps = {
@@ -11,19 +11,11 @@ type MeetingDetailViewProps = {
 export function MeetingDetailView({ userId }: MeetingDetailViewProps) {
   const searchParams = useSearchParams();
   const meetingId = searchParams.get("id");
+  const fullRoom = searchParams.get("room") === "1";
 
-  if (!meetingId) {
-    return (
-      <div className="p-4 space-y-2">
-        <p className="text-sm text-muted-foreground">
-          Select a meeting from the dashboard.
-        </p>
-        <Link href="/dashboard/" className="text-sm font-medium underline">
-          Go to dashboard
-        </Link>
-      </div>
-    );
+  if (meetingId && fullRoom) {
+    return <MeetingRoomView userId={userId} meetingId={meetingId} />;
   }
 
-  return <MeetingRoomView userId={userId} meetingId={meetingId} />;
+  return <MeetingsHubView userId={userId} />;
 }

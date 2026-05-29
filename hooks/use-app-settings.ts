@@ -8,12 +8,23 @@ import {
   getRollingSummaryMinutes,
   getMeetingTranscriptionMode,
   getQuickTranscriptionMode,
+  getWhisperModelSize,
   isLocalOnlyMode,
   isRollingSummaryEnabled,
+  isWhisperVadEnabled,
+  isWhisperWifiOnlyDownload,
+  isPreferNativeWhisper,
+  getMeetingHoldSeconds,
+  meetingHoldMs,
+  meetingHoldPurpleMs,
   subscribeSettings,
+  areLocalTodoHintsEnabled,
+  setLocalTodoHintsEnabled,
   type SpeechLanguage,
   type ThemePreference,
   type TranscriptionMode,
+  type WhisperModelSize,
+  type MeetingHoldSeconds,
 } from "@/lib/settings/preferences";
 import { useSyncExternalStore } from "react";
 
@@ -44,6 +55,18 @@ export function useAppSettings() {
     getQuickTranscriptionMode,
     "browser" as TranscriptionMode,
   );
+  const whisperModelSize = useSettingsSnapshot(
+    getWhisperModelSize,
+    "tiny" as WhisperModelSize,
+  );
+  const whisperVadEnabled = useSettingsSnapshot(isWhisperVadEnabled, true);
+  const whisperWifiOnlyDownload = useSettingsSnapshot(
+    isWhisperWifiOnlyDownload,
+    false,
+  );
+  const localTodoHints = useSettingsSnapshot(areLocalTodoHintsEnabled, true);
+  const preferNativeWhisper = useSettingsSnapshot(isPreferNativeWhisper, true);
+  const meetingHoldSeconds = useSettingsSnapshot(getMeetingHoldSeconds, 5);
 
   return {
     speechLang: speechLang as SpeechLanguage,
@@ -56,5 +79,15 @@ export function useAppSettings() {
     meetingTranscriptionMode:
       meetingTranscriptionMode as TranscriptionMode,
     quickTranscriptionMode: quickTranscriptionMode as TranscriptionMode,
+    whisperModelSize: whisperModelSize as WhisperModelSize,
+    whisperVadEnabled,
+    whisperWifiOnlyDownload,
+    localTodoHints,
+    preferNativeWhisper,
+    meetingHoldSeconds,
+    meetingHoldMs: meetingHoldMs(meetingHoldSeconds),
+    meetingHoldPurpleMs: meetingHoldPurpleMs(meetingHoldSeconds),
   };
 }
+
+export type { MeetingHoldSeconds };

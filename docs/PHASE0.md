@@ -6,7 +6,7 @@
 2. Add a **Web app** and copy the config into `.env.local` (from `.env.example`).
 3. Enable sign-in providers: **Email/Password** (required), **Google** (admin), **Anonymous** (dev only). See **[AUTH.md](AUTH.md)** for 2FA (authenticator + SMS).
 4. Create **Firestore** database (production mode; rules in `firestore.rules`).
-5. `.firebaserc` default project: **`migiude-app-plyons015`** (display name: Migiude).
+5. `.firebaserc` default project: **`Ude-app-plyons015`** (display name: Ude).
 
 ### CLI login (required for deploy/emulators)
 

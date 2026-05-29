@@ -8,10 +8,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useMeetings } from "@/hooks/use-meetings";
+import { useSharedMeetings } from "@/hooks/use-shared-meetings";
 import { useTodos } from "@/hooks/use-todos";
 import { setTodoStatus, todoStatusOf } from "@/lib/data/todos-store";
 import { getMeetingTodosByStatus } from "@/lib/library/queries";
 import type { TodoRecord, TodoStatus } from "@/lib/data/types";
+import { meetingsUrl } from "@/lib/meetings/routes";
 import Link from "next/link";
 import { useMemo } from "react";
 
@@ -52,7 +54,11 @@ function BoardColumn({
               <p className="leading-snug">{todo.text}</p>
               {todo.meetingId ? (
                 <Link
-                  href={`/meetings/?id=${todo.meetingId}&tab=followups`}
+                  href={meetingsUrl({
+                    id: todo.meetingId,
+                    room: true,
+                    tab: "followups",
+                  })}
                   className="mt-1 block text-[10px] font-medium text-violet-600 underline dark:text-violet-400"
                 >
                   {meetingsById.get(todo.meetingId) ?? "Meeting"}
@@ -90,11 +96,15 @@ function BoardColumn({
 
 export function MeetingFollowupsBoard({ userId }: MeetingFollowupsBoardProps) {
   const { meetings } = useMeetings(userId);
+  const { meetings: sharedMeetings } = useSharedMeetings(userId);
   const { todos } = useTodos(userId);
 
   const meetingsById = useMemo(
-    () => new Map(meetings.map((m) => [m.id, m.title])),
-    [meetings],
+    () => {
+      const all = [...meetings, ...sharedMeetings];
+      return new Map(all.map((m) => [m.id, m.title] as const));
+    },
+    [meetings, sharedMeetings],
   );
 
   const { open, waiting, done } = useMemo(

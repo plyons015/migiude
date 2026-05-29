@@ -23,6 +23,8 @@ export type PlanAndUsageResponse = {
     aiCalls: number;
     cloudSttMinutes: number;
     cloudSttChunksToday: number;
+    teamsBotMinutes: number;
+    teamsBotJoins: number;
   };
   limits: PlanLimitsConfig;
   display: {

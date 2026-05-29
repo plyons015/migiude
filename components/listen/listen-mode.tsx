@@ -1,5 +1,7 @@
 "use client";
 
+import { MeetingCaptureTips } from "@/components/help/meeting-capture-tips";
+import { TeamsBotJoinPanel } from "@/components/integrations/teams-bot-join-panel";
 import { AiActionsPanel } from "@/components/listen/ai-actions-panel";
 import { StartMeetingPanel } from "@/components/listen/start-meeting-panel";
 import { HighlightsList } from "@/components/listen/highlights-list";
@@ -21,6 +23,8 @@ import { saveNote } from "@/lib/data/notes-store";
 import { saveTodo } from "@/lib/data/todos-store";
 import type { TranscriptHighlight } from "@/lib/data/types";
 import { getCapacitorPlatform, isAndroid } from "@/lib/capacitor/platform";
+import { archiveUrl } from "@/lib/archive/routes";
+import { meetingsUrl } from "@/lib/meetings/routes";
 import { APP_NAME } from "@/lib/branding/app-name";
 import { showImmediateLocalNotification } from "@/lib/notifications/native-reminders";
 import { isFirebaseConfigured } from "@/lib/env/client";
@@ -583,6 +587,14 @@ export function ListenMode() {
               Cancel
             </button>
           </div>
+          <MeetingCaptureTips
+            transcriptionMode={meetingTranscriptionMode}
+            localOnly={localOnly}
+          />
+          <TeamsBotJoinPanel
+            meetingTitle={meetingTitle.trim() || undefined}
+            className="mt-2"
+          />
         </div>
       ) : null}
 
@@ -606,13 +618,20 @@ export function ListenMode() {
           </p>
           <div className="mt-2 flex flex-wrap gap-3 text-xs">
             <Link
-              href={`/meetings/?id=${endResult.meetingId}&tab=summary`}
+              href={meetingsUrl({
+                id: endResult.meetingId,
+                room: true,
+                tab: "summary",
+              })}
               className="font-medium text-emerald-700 underline dark:text-emerald-300"
             >
               View meeting
             </Link>
             <Link
-              href={`/notes/?id=${endResult.noteId}`}
+              href={archiveUrl({
+                filter: "notes",
+                id: endResult.noteId,
+              })}
               className="font-medium text-emerald-700 underline dark:text-emerald-300"
             >
               Canonical note

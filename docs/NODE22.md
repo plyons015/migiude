@@ -23,7 +23,7 @@ nvm use 22.22.0
 3. In the project folder (every new terminal):
 
 ```powershell
-cd c:\Users\plyon\Documents\chapappteams\migiude-1
+cd c:\Users\plyon\Documents\chapappteams\Ude-1
 nvm use
 node -v
 ```

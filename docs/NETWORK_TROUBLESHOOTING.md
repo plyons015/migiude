@@ -40,7 +40,7 @@ The browser cannot **resolve DNS** for Firebase Functions (e.g. `us-central1-PRO
 ### Verify
 
 ```powershell
-nslookup us-central1-migiude-app-plyons015.cloudfunctions.net 8.8.8.8
+nslookup us-central1-Ude-app-plyons015.cloudfunctions.net 8.8.8.8
 ```
 
 Should return an address (e.g. `216.239.36.54`). If that works but the browser still fails, flush DNS and restart the browser.

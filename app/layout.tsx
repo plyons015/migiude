@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AdsenseScript } from "@/components/ads/adsense-script";
 import { AppChrome } from "@/components/app-chrome";
 import { AppProviders } from "@/components/app-providers";
 import { APP_NAME } from "@/lib/branding/app-name";
-import { ADSENSE_CLIENT, ADSENSE_SCRIPT_SRC } from "@/lib/ads/adsense";
+import { ADSENSE_CLIENT } from "@/lib/ads/adsense";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,14 +39,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <head>
-        <script
-          async
-          src={ADSENSE_SCRIPT_SRC}
-          crossOrigin="anonymous"
-        />
-      </head>
+      <head />
       <body className="flex min-h-full flex-col">
+        <AdsenseScript />
         <AppProviders>
           <AppChrome>{children}</AppChrome>
         </AppProviders>

@@ -12,112 +12,62 @@ import {
   type IpodDisplayContent,
 } from "@/lib/plan/upgrade-display-messages";
 import { APP_NAME } from "@/lib/branding/app-name";
-import { isNativePlatform } from "@/lib/capacitor/platform";
-import { ADSENSE_CLIENT } from "@/lib/ads/adsense";
 import { usePlanAndUsage } from "@/hooks/use-plan-and-usage";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { IpodTodoStrip } from "@/components/dashboard/ipod-todo-strip";
+import type { TodoRecord } from "@/lib/data/types";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
-const AD_DURATION_MS = 10_000;
-const ROTATE_BENEFIT_MS = 12_000;
-const AD_DISMISS_KEY = "ude-ipod-ad-dismissed-until";
-
-function AdSenseInDisplay() {
-  const slot = process.env.NEXT_PUBLIC_ADSENSE_SLOT?.trim();
-
-  useEffect(() => {
-    if (!slot) return;
-    try {
-      (
-        window as unknown as { adsbygoogle?: unknown[] }
-      ).adsbygoogle?.push({});
-    } catch {
-      /* ad blockers */
-    }
-  }, [slot]);
-
-  if (!slot) {
-    return (
-      <p className="text-[11px] leading-snug opacity-80">
-        Upgrade to Pro for cloud backup, AI, and no ads.
-      </p>
-    );
-  }
-
-  return (
-    <ins
-      className="adsbygoogle block max-h-16 w-full overflow-hidden"
-      style={{ display: "block" }}
-      data-ad-client={ADSENSE_CLIENT}
-      data-ad-slot={slot}
-      data-ad-format="horizontal"
-      data-full-width-responsive="true"
-    />
-  );
+function subscribeClientPrefs() {
+  return () => {};
 }
 
-function isAdDismissed(): boolean {
-  if (typeof localStorage === "undefined") return false;
-  const raw = localStorage.getItem(AD_DISMISS_KEY);
-  if (!raw) return false;
-  const until = Number(raw);
-  if (!Number.isFinite(until) || until < Date.now()) {
-    localStorage.removeItem(AD_DISMISS_KEY);
-    return false;
-  }
-  return true;
-}
-
-function dismissAd(hours = 24): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.setItem(
-    AD_DISMISS_KEY,
-    String(Date.now() + hours * 60 * 60 * 1000),
-  );
-}
+const ROTATE_MS = 8_000;
+/** Auto-rotate cycles: greeting → upgrade 1 → upgrade 2 */
+const AUTO_PAGE_COUNT = 3;
+/** Swipe-only page when todos exist */
+const TODOS_PAGE_INDEX = 3;
 
 type IpodDisplayProps = {
+  userId: string;
   greeting: string;
   subtitle?: string;
   holdHint?: string | null;
+  todos?: TodoRecord[];
 };
 
-export function IpodDisplay({ greeting, subtitle, holdHint }: IpodDisplayProps) {
-  const { plan, data, loading } = usePlanAndUsage();
-  const [nudgeDismissed, setNudgeDismissed] = useState(() =>
-    isUpgradeNudgeDismissed(),
+export function IpodDisplay({
+  userId,
+  greeting,
+  subtitle,
+  holdHint,
+  todos = [],
+}: IpodDisplayProps) {
+  const { plan, data } = usePlanAndUsage();
+  const nudgeDismissedStored = useSyncExternalStore(
+    subscribeClientPrefs,
+    isUpgradeNudgeDismissed,
+    () => false,
   );
-  const [adDismissed, setAdDismissed] = useState(() => isAdDismissed());
-  const [adVisible, setAdVisible] = useState(false);
+  const [nudgeDismissedLocal, setNudgeDismissedLocal] = useState(false);
+  const nudgeDismissed = nudgeDismissedStored || nudgeDismissedLocal;
   const [benefitIndex, setBenefitIndex] = useState(0);
+  const [pageIndex, setPageIndex] = useState(0);
+  const pauseRotationRef = useRef(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  const adsEnabled =
-    plan === "free" &&
-    process.env.NEXT_PUBLIC_ADS_FREE_TIER_DISABLED !== "true";
-
-  /** Web: AdSense runs in the fixed bottom bar; skip duplicate in-display ads. */
-  const adsInDisplay = adsEnabled && isNativePlatform();
-
-  useEffect(() => {
-    if (!adsInDisplay || adDismissed || loading) {
-      setAdVisible(false);
-      return;
-    }
-    setAdVisible(true);
-    const t = window.setTimeout(() => setAdVisible(false), AD_DURATION_MS);
-    return () => window.clearTimeout(t);
-  }, [adsInDisplay, adDismissed, loading]);
-
-  useEffect(() => {
-    if (plan !== "free") return;
-    const t = window.setInterval(
-      () => setBenefitIndex((i) => i + 1),
-      ROTATE_BENEFIT_MS,
-    );
-    return () => window.clearInterval(t);
-  }, [plan]);
+  const hasTodos = todos.length > 0;
+  const maxPageIndex = plan === "free" && hasTodos ? TODOS_PAGE_INDEX : AUTO_PAGE_COUNT - 1;
 
   const nudge = useMemo(
     () =>
@@ -125,28 +75,60 @@ export function IpodDisplay({ greeting, subtitle, holdHint }: IpodDisplayProps) 
     [plan, data],
   );
 
+  // Stable auto-rotate: greeting → upgrade nudge 1 → upgrade nudge 2 → repeat.
+  useEffect(() => {
+    if (plan !== "free" || holdHint) return;
+
+    const tick = () => {
+      if (pauseRotationRef.current) return;
+      setPageIndex((prev) => {
+        if (prev >= TODOS_PAGE_INDEX) return prev;
+        const next = (prev + 1) % AUTO_PAGE_COUNT;
+        if (next === 2) {
+          setBenefitIndex((i) => i + 1);
+        }
+        return next;
+      });
+    };
+
+    const id = window.setInterval(tick, ROTATE_MS);
+    return () => window.clearInterval(id);
+  }, [holdHint, plan]);
+
   const content: IpodDisplayContent = useMemo(() => {
     if (holdHint) {
       return { id: "hold-hint", tone: "neutral", line1: holdHint };
     }
 
-    if (plan === "free" && nudge.show && !nudgeDismissed) {
-      return nudgeToIpodContent(nudge);
-    }
-
-    if (plan === "free" && adsInDisplay && adVisible && !adDismissed) {
-      return {
-        id: "ad",
-        tone: "ad",
-        line1: "Free plan",
-        line2: "Sponsored message",
-        dismissible: true,
-      };
-    }
-
     if (plan === "free") {
-      const benefit = pickRotatingBenefit(benefitIndex);
-      return { id: `benefits-${benefitIndex}`, ...benefit };
+      if (pageIndex === 0) {
+        return {
+          id: "home-greeting",
+          tone: "neutral",
+          line1: greeting,
+          line2: subtitle,
+        };
+      }
+
+      if (pageIndex === 1) {
+        if (nudge.show && !nudgeDismissed) {
+          return nudgeToIpodContent(nudge);
+        }
+        const first = pickRotatingBenefit(0);
+        return { id: "upgrade-1", ...first };
+      }
+
+      if (pageIndex === 2) {
+        const second = pickRotatingBenefit(benefitIndex + 1);
+        return { id: `upgrade-2-${benefitIndex}`, ...second };
+      }
+
+      return {
+        id: "home-todos",
+        tone: "neutral",
+        line1: greeting,
+        line2: subtitle,
+      };
     }
 
     return {
@@ -160,31 +142,60 @@ export function IpodDisplay({ greeting, subtitle, holdHint }: IpodDisplayProps) 
     plan,
     nudge,
     nudgeDismissed,
-    adsInDisplay,
-    adVisible,
-    adDismissed,
     benefitIndex,
     greeting,
     subtitle,
+    pageIndex,
   ]);
 
   const tones = toneClasses(content.tone);
+  const showTodos =
+    (content.id === "home-todos" || (plan !== "free" && content.id === "home")) &&
+    hasTodos;
 
   const handleDismiss = useCallback(() => {
-    if (content.id === "ad") {
-      dismissAd(24);
-      setAdDismissed(true);
-      setAdVisible(false);
-      return;
-    }
     if (content.id.startsWith("nudge-")) {
       dismissUpgradeNudge(7);
-      setNudgeDismissed(true);
+      setNudgeDismissedLocal(true);
     }
   }, [content.id]);
 
-  const headerLabel =
-    plan === "free" && content.id === "ad" ? "Sponsored" : APP_NAME;
+  const handlePointerDown = useCallback((e: ReactPointerEvent) => {
+    pauseRotationRef.current = true;
+    touchStartRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (e: ReactPointerEvent) => {
+      pauseRotationRef.current = false;
+      const start = touchStartRef.current;
+      touchStartRef.current = null;
+      if (!start) return;
+
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+
+      if (dx < 0) {
+        setPageIndex((i) => Math.min(maxPageIndex, i + 1));
+      } else {
+        setPageIndex((i) => Math.max(0, i - 1));
+      }
+    },
+    [maxPageIndex],
+  );
+
+  const handlePointerCancel = useCallback(() => {
+    pauseRotationRef.current = false;
+    touchStartRef.current = null;
+  }, []);
+
+  const pageDots =
+    plan === "free" && !holdHint
+      ? hasTodos
+        ? 4
+        : AUTO_PAGE_COUNT
+      : 0;
 
   return (
     <div
@@ -196,11 +207,20 @@ export function IpodDisplay({ greeting, subtitle, holdHint }: IpodDisplayProps) 
     >
       <div className="border-b border-black/5 px-3 py-1.5 dark:border-white/10">
         <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-          {headerLabel}
+          {APP_NAME}
         </p>
       </div>
-      <div className="relative min-h-30 px-4 py-4">
-        {(content.dismissible || content.id === "ad") && !holdHint ? (
+      <div
+        className={cn(
+          "relative px-4 py-4",
+          showTodos ? "min-h-36" : "min-h-30",
+        )}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onPointerLeave={handlePointerCancel}
+      >
+        {content.dismissible && !holdHint ? (
           <button
             type="button"
             className="absolute right-2 top-2 rounded p-1 opacity-60 hover:opacity-100"
@@ -229,12 +249,29 @@ export function IpodDisplay({ greeting, subtitle, holdHint }: IpodDisplayProps) 
               {content.linkLabel}
             </Link>
           ) : null}
-          {content.id === "ad" ? (
-            <div className="pt-2">
-              <AdSenseInDisplay />
-            </div>
+          {showTodos ? (
+            <IpodTodoStrip userId={userId} todos={todos} />
           ) : null}
         </div>
+
+        {pageDots > 1 ? (
+          <div
+            className="mt-3 flex justify-center gap-1.5"
+            aria-label="iPod screen pages"
+          >
+            {Array.from({ length: pageDots }, (_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-colors",
+                  i === pageIndex
+                    ? "bg-zinc-700 dark:bg-zinc-200"
+                    : "bg-zinc-400/50 dark:bg-zinc-500/50",
+                )}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

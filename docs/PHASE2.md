@@ -40,11 +40,11 @@ await aiService.mindMap(transcript); // renders Mermaid on Listen page
 
 ```bash
 firebase login --reauth
-firebase functions:secrets:set GEMINI_API_KEY --project migiude-app-plyons015
+firebase functions:secrets:set GEMINI_API_KEY --project Ude-app-plyons015
 # optional:
-firebase functions:secrets:set XAI_API_KEY --project migiude-app-plyons015
+firebase functions:secrets:set XAI_API_KEY --project Ude-app-plyons015
 npm run functions:build
-firebase deploy --only functions --project migiude-app-plyons015
+firebase deploy --only functions --project Ude-app-plyons015
 ```
 
 Enable **Anonymous** auth in Firebase Console before testing AI on device.
@@ -62,4 +62,4 @@ Test from Setup → **Test AI (Functions)** after sign-in, or Listen → **Summa
 
 ## Callable invoker (if AI shows “internal” / 403)
 
-2nd gen callables must allow **public** Cloud Run invoke. The function sets `invoker: "public"`; if AI still fails after deploy, in [Cloud Run → aiprocess → Permissions](https://console.cloud.google.com/run/detail/us-central1/aiprocess/security?project=migiude-app-plyons015) grant **Cloud Run Invoker** to `allUsers`.
+2nd gen callables must allow **public** Cloud Run invoke. The function sets `invoker: "public"`; if AI still fails after deploy, in [Cloud Run → aiprocess → Permissions](https://console.cloud.google.com/run/detail/us-central1/aiprocess/security?project=Ude-app-plyons015) grant **Cloud Run Invoker** to `allUsers`.

@@ -11,6 +11,10 @@ import {
   isMediaRecorderSupported,
   type CloudCapturePhase,
 } from "@/lib/speech/vad-audio-capture";
+import {
+  MEETING_VAD_PROFILE,
+  QUICK_VAD_PROFILE,
+} from "@/lib/speech/vad/vad-config";
 import { buildDisplayTranscript } from "@/lib/speech/transcript-merge";
 import type { SpeechListenState, TranscriptChunk } from "@/lib/speech/types";
 import { filterTranscriptSegments } from "@/lib/stt/sanitize-segments";
@@ -40,6 +44,7 @@ export function useCloudTranscription(langOverride?: string) {
   const lang = langOverride ?? speechLang;
   const { ensureSignedIn } = useAuthUser();
   const captureRef = useRef<VadAudioCapture | null>(null);
+  const sttContextRef = useRef<"quick" | "meeting">("quick");
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const [state, setState] = useState<SpeechListenState>("idle");
   const [capturePhase, setCapturePhase] = useState<CloudCapturePhase>("idle");
@@ -116,6 +121,7 @@ export function useCloudTranscription(langOverride?: string) {
           mimeType,
           lang,
           audioDurationMs,
+          context: sttContextRef.current,
         });
         const spoken = filterTranscriptSegments(out.segments);
         if (spoken.length === 0) return;
@@ -133,36 +139,52 @@ export function useCloudTranscription(langOverride?: string) {
     [appendSegments, ensureSignedIn, lang],
   );
 
+  const attachCapture = useCallback(
+    (meeting: boolean) => {
+      captureRef.current?.destroy();
+      const timing = meeting ? MEETING_VAD_PROFILE : QUICK_VAD_PROFILE;
+      captureRef.current = new VadAudioCapture(
+        (payload) => {
+          queueRef.current = queueRef.current.then(() =>
+            processSegment(payload.blob, payload.mimeType, payload.durationSec),
+          );
+        },
+        (phase) => setCapturePhase(phase),
+        timing,
+      );
+    },
+    [processSegment],
+  );
+
   useEffect(() => {
-    captureRef.current = new VadAudioCapture(
-      (payload) => {
-        queueRef.current = queueRef.current.then(() =>
-          processSegment(payload.blob, payload.mimeType, payload.durationSec),
-        );
-      },
-      (phase) => setCapturePhase(phase),
-    );
+    attachCapture(false);
     return () => {
       captureRef.current?.destroy();
       captureRef.current = null;
     };
-  }, [processSegment]);
+  }, [attachCapture]);
 
-  const startListening = useCallback(async () => {
-    setError(null);
-    try {
-      await ensureMicrophonePermission();
-      await ensureSignedIn();
-      setState("starting");
-      await captureRef.current?.start();
-      setState("listening");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Could not start cloud STT.";
-      setError(message);
-      setState("error");
-    }
-  }, [ensureSignedIn]);
+  const startListening = useCallback(
+    async (options?: { meeting?: boolean }) => {
+      const meeting = options?.meeting === true;
+      sttContextRef.current = meeting ? "meeting" : "quick";
+      attachCapture(meeting);
+      setError(null);
+      try {
+        await ensureMicrophonePermission();
+        await ensureSignedIn();
+        setState("starting");
+        await captureRef.current?.start();
+        setState("listening");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Could not start cloud STT.";
+        setError(message);
+        setState("error");
+      }
+    },
+    [attachCapture, ensureSignedIn],
+  );
 
   const stopListening = useCallback(() => {
     setState("stopping");

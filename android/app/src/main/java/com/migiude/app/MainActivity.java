@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(RecordingForegroundPlugin.class);
+        registerPlugin(com.migiude.app.whisper.WhisperNativePlugin.class);
         super.onCreate(savedInstanceState);
         requestAppPermissions();
     }

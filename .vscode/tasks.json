@@ -15,7 +15,7 @@
       }
     },
     {
-      "label": "Android: logcat (Migiude errors)",
+      "label": "Android: logcat (Ude errors)",
       "type": "shell",
       "command": "adb logcat -c; adb logcat *:E | findstr /i \"migiude FATAL AndroidRuntime RecordingForeground chromium\"",
       "options": {

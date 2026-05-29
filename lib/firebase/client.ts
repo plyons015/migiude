@@ -1,7 +1,13 @@
 import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
-import { Auth, getAuth } from "firebase/auth";
+import {
+  Auth,
+  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+} from "firebase/auth";
 import { Firestore, getFirestore } from "firebase/firestore";
 import { Functions, getFunctions } from "firebase/functions";
+import { isNativePlatform } from "@/lib/capacitor/platform";
 import { shouldUseFirebaseEmulators } from "@/lib/env/client";
 import { getFirebaseOptions } from "@/lib/firebase/config";
 import { connectFirebaseEmulators } from "@/lib/firebase/emulators";
@@ -30,7 +36,17 @@ export function getFirebaseAuth(): Auth | null {
   if (!firebaseApp) return null;
 
   if (!auth) {
-    auth = getAuth(firebaseApp);
+    if (typeof window !== "undefined" && isNativePlatform()) {
+      try {
+        auth = initializeAuth(firebaseApp, {
+          persistence: indexedDBLocalPersistence,
+        });
+      } catch {
+        auth = getAuth(firebaseApp);
+      }
+    } else {
+      auth = getAuth(firebaseApp);
+    }
   }
 
   return auth;
@@ -60,12 +76,19 @@ export function getFirebaseFunctions(): Functions | null {
 
 /** Call once on the client after Firebase is configured. */
 export function initFirebaseClient(): boolean {
+  if (typeof window === "undefined") return false;
+
   const firebaseApp = getFirebaseApp();
   const firebaseAuth = getFirebaseAuth();
   const firestore = getFirebaseDb();
   const firebaseFunctions = getFirebaseFunctions();
 
   if (!firebaseApp || !firebaseAuth || !firestore || !firebaseFunctions) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error(
+        "[Firebase] Client init failed — check NEXT_PUBLIC_FIREBASE_* in .env.local and rebuild for Android.",
+      );
+    }
     return false;
   }
 

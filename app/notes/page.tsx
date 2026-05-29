@@ -1,11 +1,11 @@
 "use client";
 
 import { Suspense } from "react";
-import { AuthGate } from "@/components/auth-gate";
-import { NotesView } from "@/components/notes/notes-view";
+import { ArchiveRedirect } from "@/components/archive/archive-redirect";
+import { archiveUrlFromNotesSearch } from "@/lib/archive/routes";
 import { Loader2 } from "lucide-react";
 
-export default function NotesPage() {
+export default function NotesRedirectPage() {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <Suspense
@@ -15,7 +15,7 @@ export default function NotesPage() {
           </div>
         }
       >
-        <AuthGate>{(uid) => <NotesView userId={uid} />}</AuthGate>
+        <ArchiveRedirect mapSearch={archiveUrlFromNotesSearch} />
       </Suspense>
     </main>
   );

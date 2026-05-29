@@ -27,7 +27,7 @@
 ## Deploy index (if Firestore query fails)
 
 ```bash
-firebase deploy --only firestore:indexes --project migiude-app-plyons015
+firebase deploy --only firestore:indexes --project Ude-app-plyons015
 ```
 
 ## Next

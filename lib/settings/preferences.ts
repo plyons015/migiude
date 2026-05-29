@@ -1,5 +1,28 @@
+import type { WhisperModelSize } from "@/lib/speech/whisper-models";
+
 export type TranscriptionMode = "browser" | "cloud";
 export type TranscriptionContext = "meeting" | "quick";
+export type { WhisperModelSize };
+
+/** How long to hold the mic before meeting (cloud) mode starts. */
+export type MeetingHoldSeconds = 3 | 5 | 7;
+
+export const MEETING_HOLD_OPTIONS: {
+  value: MeetingHoldSeconds;
+  label: string;
+}[] = [
+  { value: 3, label: "3 seconds (faster)" },
+  { value: 5, label: "5 seconds (default)" },
+  { value: 7, label: "7 seconds (fewer accidents)" },
+];
+
+export function meetingHoldMs(seconds: MeetingHoldSeconds): number {
+  return seconds * 1000;
+}
+
+export function meetingHoldPurpleMs(seconds: MeetingHoldSeconds): number {
+  return Math.round((meetingHoldMs(seconds) * 2_500) / 5_000);
+}
 
 export type SpeechLanguage =
   | "en-US"
@@ -29,6 +52,12 @@ const KEYS = {
   transcriptionMode: "migiude-transcription-mode",
   meetingTranscription: "migiude-meeting-transcription-mode",
   quickTranscription: "migiude-quick-transcription-mode",
+  whisperModel: "migiude-whisper-model-size",
+  whisperVad: "migiude-whisper-vad",
+  whisperWifiOnly: "migiude-whisper-wifi-only",
+  preferNativeWhisper: "migiude-prefer-native-whisper",
+  meetingHoldSeconds: "migiude-meeting-hold-seconds",
+  localTodoHints: "migiude-local-todo-hints",
 } as const;
 
 function migrateTranscriptionPrefs(): void {
@@ -178,6 +207,66 @@ export function getTranscriptionModeForContext(
   return context === "meeting"
     ? getMeetingTranscriptionMode()
     : getQuickTranscriptionMode();
+}
+
+export function getWhisperModelSize(): WhisperModelSize {
+  if (typeof window === "undefined") return "tiny";
+  const v = localStorage.getItem(KEYS.whisperModel);
+  return v === "base" ? "base" : "tiny";
+}
+
+export function setWhisperModelSize(size: WhisperModelSize): void {
+  localStorage.setItem(KEYS.whisperModel, size);
+  window.dispatchEvent(new Event("migiude-settings"));
+}
+
+export function isWhisperVadEnabled(): boolean {
+  return readBool(KEYS.whisperVad, true);
+}
+
+export function setWhisperVadEnabled(enabled: boolean): void {
+  localStorage.setItem(KEYS.whisperVad, String(enabled));
+  window.dispatchEvent(new Event("migiude-settings"));
+}
+
+export function isWhisperWifiOnlyDownload(): boolean {
+  return readBool(KEYS.whisperWifiOnly, false);
+}
+
+export function setWhisperWifiOnlyDownload(enabled: boolean): void {
+  localStorage.setItem(KEYS.whisperWifiOnly, String(enabled));
+  window.dispatchEvent(new Event("migiude-settings"));
+}
+
+export function isPreferNativeWhisper(): boolean {
+  return readBool(KEYS.preferNativeWhisper, true);
+}
+
+export function setPreferNativeWhisper(enabled: boolean): void {
+  localStorage.setItem(KEYS.preferNativeWhisper, String(enabled));
+  window.dispatchEvent(new Event("migiude-settings"));
+}
+
+export function getMeetingHoldSeconds(): MeetingHoldSeconds {
+  if (typeof window === "undefined") return 5;
+  const v = localStorage.getItem(KEYS.meetingHoldSeconds);
+  if (v === "3") return 3;
+  if (v === "7") return 7;
+  return 5;
+}
+
+export function setMeetingHoldSeconds(seconds: MeetingHoldSeconds): void {
+  localStorage.setItem(KEYS.meetingHoldSeconds, String(seconds));
+  window.dispatchEvent(new Event("migiude-settings"));
+}
+
+export function areLocalTodoHintsEnabled(): boolean {
+  return readBool(KEYS.localTodoHints, true);
+}
+
+export function setLocalTodoHintsEnabled(enabled: boolean): void {
+  localStorage.setItem(KEYS.localTodoHints, String(enabled));
+  window.dispatchEvent(new Event("migiude-settings"));
 }
 
 export function subscribeSettings(callback: () => void): () => void {

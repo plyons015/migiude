@@ -4,6 +4,7 @@ import { z } from "zod";
 import { assertAdmin } from "../admin/assert-admin";
 import { writeAdminAuditLog } from "../admin/audit";
 import { currentMonthKey, readMonthUsage } from "../admin/month-usage";
+import { readTeamsBotUsage } from "../integrations/microsoft/store";
 import { utcTodayKey } from "../admin/plan-limits";
 import { adminSecrets, bindAdminEmailsEnv } from "../admin/secrets";
 import { formatZodError } from "../admin/zod-helpers";
@@ -41,6 +42,10 @@ const planLimitsPatchSchema = z.object({
   aiFairUse: z.boolean().optional(),
   prioritySupport: z.boolean().optional(),
   usageDashboard: z.boolean().optional(),
+  teamsBotEnabled: z.boolean().optional(),
+  teamsBotMinutesPerMonth: z.number().int().min(0).nullable().optional(),
+  teamsBotJoinsPerMonth: z.number().int().min(0).nullable().optional(),
+  teamsBotCalendarAutoJoin: z.boolean().optional(),
 });
 
 const planDisplayPatchSchema = z.object({
@@ -120,6 +125,7 @@ export const getPlanAndUsage = onCall(callOptions, async (request) => {
   const display = config.tiers[plan].display;
 
   const monthUsage = await readMonthUsage(uid);
+  const teamsBotUsage = await readTeamsBotUsage(uid);
   const cloudSttChunksToday = await readTodayCloudSttChunks(uid);
   const trialUsage = await readTrialUsage(uid);
 
@@ -131,6 +137,8 @@ export const getPlanAndUsage = onCall(callOptions, async (request) => {
       aiCalls: monthUsage.aiCalls,
       cloudSttMinutes: monthUsage.cloudSttMinutes,
       cloudSttChunksToday,
+      teamsBotMinutes: teamsBotUsage.teamsBotMinutes,
+      teamsBotJoins: teamsBotUsage.teamsBotJoins,
     },
     limits,
     display: { id: plan, ...display },

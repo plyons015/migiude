@@ -6,6 +6,7 @@ import {
   formatCloudSttLimitLabel,
   usagePercent,
 } from "@/lib/plan/limits";
+import { TEAMS_BOT_INTEGRATION_LAUNCHED } from "@/lib/integrations/microsoft/feature";
 import type { PlanAndUsageResponse } from "@/lib/plan/types";
 import {
   Card,
@@ -134,6 +135,22 @@ export function PlanUsageCard({ data, loading, error, onRetry }: Props) {
             limit={limits.cloudSttChunksPerDay}
             unit=""
           />
+        ) : null}
+        {TEAMS_BOT_INTEGRATION_LAUNCHED && limits.teamsBotEnabled ? (
+          <>
+            <UsageBar
+              label="Teams bot minutes"
+              used={usage.teamsBotMinutes}
+              limit={limits.teamsBotMinutesPerMonth}
+              unit=" min"
+            />
+            <UsageBar
+              label="Teams bot joins"
+              used={usage.teamsBotJoins}
+              limit={limits.teamsBotJoinsPerMonth}
+              unit=""
+            />
+          </>
         ) : null}
         {limits.aiFairUse ? (
           <p className="text-xs text-muted-foreground" title={FAIR_USE_TOOLTIP}>

@@ -29,6 +29,20 @@ function todosCollection(userId: string) {
   return collection(db, "users", userId, "todos");
 }
 
+export async function listTodosForContext(
+  userId: string,
+  options: { meetingId?: string; noteId?: string } = {},
+): Promise<TodoRecord[]> {
+  const all = await listLocalTodos(userId);
+  const { meetingId, noteId } = options;
+  if (!meetingId && !noteId) return all;
+  return all.filter((todo) => {
+    if (meetingId && todo.meetingId === meetingId) return true;
+    if (noteId && todo.noteId === noteId) return true;
+    return false;
+  });
+}
+
 export function subscribeTodos(
   userId: string,
   onData: (todos: TodoRecord[]) => void,
@@ -73,6 +87,8 @@ function todoFirestorePayload(todo: TodoRecord) {
     dueAt: todo.dueAt ?? null,
     noteId: todo.noteId ?? null,
     meetingId: todo.meetingId ?? null,
+    groupId: todo.groupId ?? null,
+    processingScope: todo.processingScope ?? null,
     reminderNotified: todo.reminderNotified ?? false,
     topicTag: todo.topicTag ?? null,
     assigneeLabel: todo.assigneeLabel ?? null,
@@ -96,6 +112,8 @@ export async function saveTodo(
     dueAt?: number;
     noteId?: string;
     meetingId?: string;
+    groupId?: string;
+    processingScope?: TodoRecord["processingScope"];
     topicTag?: string;
     assigneeLabel?: string;
     id?: string;
@@ -113,6 +131,10 @@ export async function saveTodo(
     dueAt: input.dueAt,
     noteId: input.noteId,
     meetingId: input.meetingId,
+    groupId: input.groupId,
+    processingScope:
+      input.processingScope ??
+      (input.meetingId ? "cloud" : input.groupId ? "cloud" : "local"),
     topicTag: input.topicTag,
     assigneeLabel: input.assigneeLabel,
     reminderNotified: false,
@@ -138,7 +160,14 @@ export async function saveTodosFromMarkdown(
   const lines = parseTodosFromMarkdown(markdown);
   const created: TodoRecord[] = [];
   for (const text of lines) {
-    created.push(await saveTodo(userId, { text, noteId, meetingId }));
+    created.push(
+      await saveTodo(userId, {
+        text,
+        noteId,
+        meetingId,
+        processingScope: meetingId ? "cloud" : "local",
+      }),
+    );
   }
   return created;
 }

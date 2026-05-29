@@ -17,6 +17,8 @@ import { isFirebaseConfigured } from "@/lib/env/client";
 import { resolveMeetingTemplate } from "@/lib/meetings/custom-templates-store";
 import { buildTemplateInsightsContext } from "@/lib/meetings/templates";
 import type { SavedCapture } from "@/hooks/use-listen-session";
+import { archiveUrl } from "@/lib/archive/routes";
+import { meetingsUrl } from "@/lib/meetings/routes";
 import { format } from "date-fns";
 import { Brain, Loader2, Sparkles, X } from "lucide-react";
 import Link from "next/link";
@@ -132,8 +134,11 @@ export function PostSaveAiDialog({
             <Link
               href={
                 capture.kind === "meeting" && capture.meetingId
-                  ? `/meetings/?id=${capture.meetingId}`
-                  : `/notes/?id=${capture.noteId}`
+                  ? meetingsUrl({ id: capture.meetingId })
+                  : archiveUrl({
+                      filter: "notes",
+                      id: capture.noteId,
+                    })
               }
               className="block text-center text-xs text-violet-600 underline dark:text-violet-400"
               onClick={onClose}
@@ -207,13 +212,16 @@ export function PostSaveAiDialog({
                   type="button"
                   onClick={() => {
                     void saveNote(userId, {
-                      title: `Mind map ${format(new Date(), "MMM d HH:mm")}`,
-                      body: insights.summary || capture.transcript.slice(0, 500),
+                      id: capture.noteId,
+                      title: capture.title,
+                      body:
+                        insights.summary ||
+                        capture.transcript.slice(0, 500),
                       transcript: capture.transcript,
                       mindMapSource: insights.mindMap,
-                      source: "listen",
+                      source: capture.meetingId ? "meeting" : "listen",
                       meetingId: capture.meetingId,
-                    }).then(() => setSaveMsg("Mind map note saved."));
+                    }).then(() => setSaveMsg("Mind map saved to this note."));
                   }}
                   className="rounded-full border border-border px-3 py-1.5 text-xs font-medium"
                 >

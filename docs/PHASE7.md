@@ -11,7 +11,7 @@
 
 ## Commitment awareness (default on)
 
-When you say first-person commitments (e.g. *"I will drop a book off to you this afternoon"*), Migiude:
+When you say first-person commitments (e.g. *"I will drop a book off to you this afternoon"*), Ude:
 
 1. Spots likely commitment phrases locally (fast)
 2. Asks AI to extract a short todo + due time
@@ -45,7 +45,7 @@ New `aiProcess` tasks: `suggest_tags`, `daily_recap`
 
 ```bash
 npm run functions:build
-firebase deploy --only functions --project migiude-app-plyons015
+firebase deploy --only functions --project Ude-app-plyons015
 ```
 
 ## Next

@@ -24,9 +24,14 @@ function subscribeSpeechSupport() {
   return () => {};
 }
 
-export function useSpeechRecognition(langOverride?: string) {
+export function useSpeechRecognition(
+  langOverride?: string,
+  options?: { personalize?: (text: string) => string },
+) {
   const { speechLang } = useAppSettings();
   const lang = langOverride ?? speechLang;
+  const personalizeRef = useRef(options?.personalize);
+  personalizeRef.current = options?.personalize;
   const recognizerRef = useRef<WebSpeechRecognizer | null>(null);
   const forceNewChunkRef = useRef(false);
   const [state, setState] = useState<SpeechListenState>("idle");
@@ -57,8 +62,10 @@ export function useSpeechRecognition(langOverride?: string) {
         onFinalChunk: (chunk) => {
           const forceNew = forceNewChunkRef.current;
           forceNewChunkRef.current = false;
+          const display =
+            personalizeRef.current?.(chunk.text) ?? chunk.text;
           setChunks((prev) =>
-            mergeFinalTranscript(prev, chunk.text, { forceNewChunk: forceNew }),
+            mergeFinalTranscript(prev, display, { forceNewChunk: forceNew }),
           );
           setInterimText("");
         },
@@ -109,6 +116,12 @@ export function useSpeechRecognition(langOverride?: string) {
     setState((s) => (s === "error" ? "idle" : s));
   }, []);
 
+  const updateChunkText = useCallback((chunkId: string, text: string) => {
+    setChunks((prev) =>
+      prev.map((c) => (c.id === chunkId ? { ...c, text } : c)),
+    );
+  }, []);
+
   const isListening = state === "listening" || state === "starting";
 
   return {
@@ -123,5 +136,6 @@ export function useSpeechRecognition(langOverride?: string) {
     stopListening,
     clearTranscript,
     restoreTranscript,
+    updateChunkText,
   };
 }

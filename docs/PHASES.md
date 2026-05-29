@@ -1,4 +1,4 @@
-# Migiude — Master phase plan
+# Ude — Master phase plan
 
 **Product:** Privacy-first meeting & voice assistant — capture → transcribe → AI → **organize and follow up** (without full Notion/Monday PM scope).
 
@@ -259,7 +259,7 @@ flowchart LR
 
 ---
 
-## Definition of done — Migiude v1
+## Definition of done — Ude v1
 
 You can ship v1 when:
 
@@ -268,7 +268,7 @@ You can ship v1 when:
 3. **Phase 10** — Find by tag + export minutes.
 4. **Phase 11** — Android recording UX + FCM + signed APK.
 
-Phases **0–11** ✅ — Migiude v1 feature-complete for single-user release.
+Phases **0–11** ✅ — Ude v1 feature-complete for single-user release.
 
 ---
 

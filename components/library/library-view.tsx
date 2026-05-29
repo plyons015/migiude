@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useMeetings } from "@/hooks/use-meetings";
 import { useTodos } from "@/hooks/use-todos";
 import { removeMeeting } from "@/lib/data/meetings-store";
@@ -26,6 +27,7 @@ import { Calendar, Columns3, Filter, ListTodo, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { meetingsUrl } from "@/lib/meetings/routes";
 
 type LibraryViewProps = {
   userId: string;
@@ -43,18 +45,28 @@ export function LibraryView({ userId }: LibraryViewProps) {
   const { meetings } = useMeetings(userId);
   const { todos } = useTodos(userId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  async function deleteMeetingById(meetingId: string, title: string) {
-    if (
-      !window.confirm(
-        `Delete "${title}"? This removes the meeting from your library and cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-    setDeletingId(meetingId);
+  function requestDeleteMeeting(meetingId: string, title: string) {
+    setDeleteError(null);
+    setPendingDelete({ id: meetingId, title });
+  }
+
+  async function confirmDeleteMeeting() {
+    if (!pendingDelete) return;
+    setDeletingId(pendingDelete.id);
+    setDeleteError(null);
     try {
-      await removeMeeting(userId, meetingId);
+      await removeMeeting(userId, pendingDelete.id);
+      setPendingDelete(null);
+    } catch (e) {
+      setDeleteError(
+        e instanceof Error ? e.message : "Could not delete this meeting.",
+      );
     } finally {
       setDeletingId(null);
     }
@@ -93,7 +105,29 @@ export function LibraryView({ userId }: LibraryViewProps) {
   }
 
   return (
+    <>
+    <ConfirmDialog
+      open={pendingDelete !== null}
+      title="Delete meeting?"
+      description={
+        pendingDelete
+          ? `“${pendingDelete.title}” will be removed from your library. This cannot be undone.`
+          : ""
+      }
+      confirmLabel="Delete"
+      destructive
+      busy={deletingId !== null}
+      onConfirm={() => void confirmDeleteMeeting()}
+      onCancel={() => {
+        if (!deletingId) setPendingDelete(null);
+      }}
+    />
     <div className="flex flex-1 flex-col gap-4 p-4 pb-8">
+      {deleteError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {deleteError}
+        </p>
+      ) : null}
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
         <p className="text-sm text-muted-foreground">
@@ -218,7 +252,11 @@ export function LibraryView({ userId }: LibraryViewProps) {
                       <span>{t.text}</span>
                       {m ? (
                         <Link
-                          href={`/meetings/?id=${m.id}&tab=followups`}
+                          href={meetingsUrl({
+                            id: m.id,
+                            room: true,
+                            tab: "followups",
+                          })}
                           className="ml-2 text-xs text-violet-600 underline dark:text-violet-400"
                         >
                           {m.title}
@@ -246,7 +284,7 @@ export function LibraryView({ userId }: LibraryViewProps) {
                   className="flex items-stretch rounded-lg border border-border transition-colors hover:bg-accent/50"
                 >
                   <Link
-                    href={`/meetings/?id=${m.id}`}
+                    href={meetingsUrl({ id: m.id, room: true })}
                     className="flex min-w-0 flex-1 items-start gap-3 p-3"
                   >
                     <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -281,7 +319,10 @@ export function LibraryView({ userId }: LibraryViewProps) {
                     type="button"
                     disabled={deletingId === m.id}
                     aria-label={`Delete ${m.title}`}
-                    onClick={() => void deleteMeetingById(m.id, m.title)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      requestDeleteMeeting(m.id, m.title);
+                    }}
                     className="shrink-0 self-center px-3 text-muted-foreground hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -293,5 +334,6 @@ export function LibraryView({ userId }: LibraryViewProps) {
         </>
       )}
     </div>
+    </>
   );
 }

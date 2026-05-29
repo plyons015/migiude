@@ -1,10 +1,10 @@
-# Debug Migiude Android from Cursor
+# Debug Ude Android from Cursor
 
 ## Why you don’t see “Workspace Recommendations”
 
 That banner only appears when:
 
-1. You opened the **project root** folder: `migiude-1` (not only `android/`).
+1. You opened the **project root** folder: `Ude-1` (not only `android/`).
 2. Cursor read `.vscode/extensions.json`.
 3. At least one recommended extension exists in **Cursor’s** marketplace (many Android-only extensions do **not**).
 
@@ -24,7 +24,7 @@ If the list is empty or tiny, that’s normal — Cursor does not ship most VS C
 Terminal in Cursor:
 
 ```powershell
-cd c:\Users\plyon\Documents\chapappteams\migiude-1
+cd c:\Users\plyon\Documents\chapappteams\Ude-1
 npm run cap:sync
 npm run cap:run:android
 ```
@@ -41,7 +41,7 @@ adb logcat -c
 adb logcat *:E
 ```
 
-Or run task: **Android: logcat (Migiude errors)**
+Or run task: **Android: logcat (Ude errors)**
 
 Reproduce the crash on the phone; copy lines with `FATAL EXCEPTION`.
 
@@ -51,7 +51,7 @@ This is a **WebView** app — use **Chrome**, not a Cursor Android extension:
 
 1. App running on phone.
 2. PC Chrome → `chrome://inspect/#devices`
-3. Click **inspect** under `com.migiude.app`
+3. Click **inspect** under `com.Ude.app`
 4. Use **Console** / **Network** like a website.
 
 ---
@@ -102,7 +102,7 @@ Use **Tasks: Run Task** (our `tasks.json` shell tasks) or the terminal — not t
 
 Studio will not enable ▶ or 🐛 until **all** of this is true:
 
-1. **Open the right folder** — `migiude-1\android` (not the parent `migiude-1` folder).
+1. **Open the right folder** — `Ude-1\android` (not the parent `Ude-1` folder).
 2. **Gradle sync finished** — bottom status bar: no “Sync failed”; elephant icon done.
    - **File → Sync Project with Gradle Files**
    - First time can take several minutes; needs internet.
@@ -133,7 +133,7 @@ If you only see **app2** or get “no runners for Android App”:
    (Studio recreates it; this clears broken local configs.)
 3. **Reopen** the `android` folder:  
    `npm run cap:android`  
-   or **File → Open** → `migiude-1\android`
+   or **File → Open** → `Ude-1\android`
 4. **Run → Edit Configurations** → select **app2** → click **−** to delete
 5. You should see **app** (from `android/.idea/runConfigurations/app.xml`).  
    Module: **android.app**, Launch: **Default Activity**

@@ -8,6 +8,8 @@ import {
   requestNotificationPermission,
 } from "@/lib/notifications/reminders";
 import { isNativePlatform } from "@/lib/capacitor/platform";
+import { APP_HOME_PATH } from "@/lib/navigation/go-home";
+import { hardReplace } from "@/lib/navigation/hard-navigate";
 import { Bell, Mic, Shield } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -46,6 +48,14 @@ export function OnboardingView() {
   const showLogo = step === 0;
   const isLast = step === STEPS.length - 1;
 
+  const goToDashboard = () => {
+    if (isNativePlatform()) {
+      hardReplace(APP_HOME_PATH);
+      return;
+    }
+    router.replace(APP_HOME_PATH);
+  };
+
   const handleNext = async () => {
     setMsg(null);
 
@@ -69,7 +79,7 @@ export function OnboardingView() {
         setMsg(ok ? "Notifications enabled." : "Skipped — enable later in Settings.");
       }
       setOnboardingComplete();
-      router.replace("/dashboard/");
+      goToDashboard();
       return;
     }
 
@@ -79,7 +89,7 @@ export function OnboardingView() {
 
   const handleSkip = () => {
     setOnboardingComplete();
-    router.replace("/dashboard/");
+    goToDashboard();
   };
 
   return (

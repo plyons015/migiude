@@ -3,8 +3,31 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Per-user notes, todos, settings (Phase 3)
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId} {
+      match /friends/{friendId} {
+        allow read, update, delete: if request.auth != null
+          && request.auth.uid == userId;
+        allow create: if request.auth != null
+          && (
+            request.auth.uid == userId
+            || (
+              request.resource.data.uid == request.auth.uid
+              && request.resource.data.inviteToken != null
+              && request.resource.data.inviteToken != ""
+              && exists(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken))
+              && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.status == "pending"
+              && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.inviterUid == userId
+              && request.auth.token.email != null
+              && request.resource.data.email == get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.targetEmail
+              && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.targetEmail == request.auth.token.email.lower()
+              && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.expiresAt > request.time.toMillis()
+            )
+          );
+      }
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Admin-only data — managed via Cloud Functions + Admin SDK
@@ -50,6 +73,136 @@ service cloud.firestore {
       allow read: if request.auth != null
         && resource.data.uid == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    // Group workspaces (v1) — shared meetings by group.
+    // Owner writes; members read. Member list is explicit per workspace.
+    match /groupWorkspaces/{groupId} {
+      allow create, update, delete: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid;
+
+      match /members/{uid} {
+        allow read: if request.auth != null
+          && uid == request.auth.uid
+          && exists(/databases/$(database)/documents/groupWorkspaces/$(groupId)/members/$(request.auth.uid));
+        allow create, update: if request.auth != null
+          && uid == request.auth.uid
+          && (
+            // Owner can always manage membership for the group.
+            (
+              exists(/databases/$(database)/documents/groupWorkspaces/$(groupId))
+              && get(/databases/$(database)/documents/groupWorkspaces/$(groupId)).data.ownerUid == request.auth.uid
+            )
+            ||
+            // Invitee can join using a valid invite token.
+            (
+              request.resource.data.inviteToken != null
+              && request.resource.data.inviteToken != ""
+              && exists(/databases/$(database)/documents/groupInvites/$(request.resource.data.inviteToken))
+              && get(/databases/$(database)/documents/groupInvites/$(request.resource.data.inviteToken)).data.status == "pending"
+              && get(/databases/$(database)/documents/groupInvites/$(request.resource.data.inviteToken)).data.groupId == groupId
+              && (
+                get(/databases/$(database)/documents/groupInvites/$(request.resource.data.inviteToken)).data.targetUid == request.auth.uid
+                || (
+                  get(/databases/$(database)/documents/groupInvites/$(request.resource.data.inviteToken)).data.targetEmail != null
+                  && request.auth.token.email != null
+                  && get(/databases/$(database)/documents/groupInvites/$(request.resource.data.inviteToken)).data.targetEmail == request.auth.token.email.lower()
+                )
+              )
+              && get(/databases/$(database)/documents/groupInvites/$(request.resource.data.inviteToken)).data.expiresAt > request.time.toMillis()
+            )
+          );
+
+        // Only the workspace owner can remove members.
+        allow delete: if request.auth != null
+          && exists(/databases/$(database)/documents/groupWorkspaces/$(groupId))
+          && get(/databases/$(database)/documents/groupWorkspaces/$(groupId)).data.ownerUid == request.auth.uid;
+      }
+
+      match /meetings/{meetingId} {
+        allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/groupWorkspaces/$(groupId)/members/$(request.auth.uid));
+        allow create, update, delete: if request.auth != null
+          && exists(/databases/$(database)/documents/groupWorkspaces/$(groupId))
+          && get(/databases/$(database)/documents/groupWorkspaces/$(groupId)).data.ownerUid == request.auth.uid;
+      }
+    }
+
+    // Group invites (v1) — one-time token for joining a group workspace.
+    match /userIntegrations/{uid} {
+      allow read, write: if false;
+    }
+
+    match /oauthStates/{stateId} {
+      allow read, write: if false;
+    }
+
+    match /teamsBotJobs/{jobId} {
+      allow read: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /groupInvites/{token} {
+      allow create: if request.auth != null
+        && request.resource.data.groupId != null
+        && exists(/databases/$(database)/documents/groupWorkspaces/$(request.resource.data.groupId))
+        && get(/databases/$(database)/documents/groupWorkspaces/$(request.resource.data.groupId)).data.ownerUid == request.auth.uid;
+
+      // Invited user can read the invite token doc (for accept flow).
+      allow read: if request.auth != null
+        && (
+          exists(/databases/$(database)/documents/groupWorkspaces/$(resource.data.groupId))
+          && (
+            resource.data.targetUid == request.auth.uid
+            || (resource.data.targetEmail != null && request.auth.token.email != null && resource.data.targetEmail == request.auth.token.email.lower())
+          )
+        );
+
+      // Invited user can mark the invite used (and record acceptance).
+      allow update: if request.auth != null
+        && resource.data.status == "pending"
+        && request.resource.data.status == "used"
+        && request.resource.data.acceptedByUid == request.auth.uid
+        && (
+          resource.data.targetUid == request.auth.uid
+          || (
+            resource.data.targetEmail != null
+            && request.auth.token.email != null
+            && resource.data.targetEmail == request.auth.token.email.lower()
+          )
+        )
+        && resource.data.groupId == request.resource.data.groupId
+        && resource.data.expiresAt > request.time.toMillis();
+
+      // Only owner can delete invite tokens.
+      allow delete: if request.auth != null
+        && exists(/databases/$(database)/documents/groupWorkspaces/$(resource.data.groupId))
+        && get(/databases/$(database)/documents/groupWorkspaces/$(resource.data.groupId)).data.ownerUid == request.auth.uid;
+    }
+
+    // Friend invites — email link adds acceptor to inviter's friends list.
+    match /friendInvites/{token} {
+      allow create: if request.auth != null
+        && request.resource.data.inviterUid == request.auth.uid
+        && request.resource.data.targetEmail != null
+        && request.resource.data.status == "pending";
+
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && resource.data.targetEmail == request.auth.token.email.lower();
+
+      allow update: if request.auth != null
+        && resource.data.status == "pending"
+        && request.resource.data.status == "used"
+        && request.resource.data.acceptedByUid == request.auth.uid
+        && request.auth.token.email != null
+        && resource.data.targetEmail == request.auth.token.email.lower()
+        && resource.data.inviterUid == request.resource.data.inviterUid
+        && resource.data.expiresAt > request.time.toMillis();
+
+      allow delete: if request.auth != null
+        && resource.data.inviterUid == request.auth.uid;
     }
   }
 }

@@ -1,6 +1,6 @@
 # Authentication — email/password + 2FA
 
-Migiude uses **Firebase Authentication** with:
+Ude uses **Firebase Authentication** with:
 
 - **Email / password** (primary app sign-in)
 - **Two-factor authentication (2FA)** — **authenticator app (TOTP)** preferred, **SMS** optional backup
@@ -13,11 +13,11 @@ Firebase does **not** support email OTP as a second factor. Use an authenticator
 
 ## Firebase Console setup (required)
 
-Project: **migiude-app-plyons015**
+Project: **Ude-app-plyons015**
 
 ### 1. Sign-in providers
 
-[Authentication → Sign-in method](https://console.firebase.google.com/project/migiude-app-plyons015/authentication/providers)
+[Authentication → Sign-in method](https://console.firebase.google.com/project/Ude-app-plyons015/authentication/providers)
 
 | Provider | Enable |
 |----------|--------|
@@ -123,7 +123,7 @@ With emulators, enable Auth emulator in Console or use production Auth for MFA t
 
 Used for **verification** and **password-reset** emails. Check:
 
-1. **Authorized domains** — Authentication → Settings → `localhost`, `migiude-app-plyons015.web.app`, `migiude-app-plyons015.firebaseapp.com`
+1. **Authorized domains** — Authentication → Settings → `localhost`, `Ude-app-plyons015.web.app`, `Ude-app-plyons015.firebaseapp.com`
 2. **API key restrictions** — Google Cloud → Credentials → Browser key → allow `http://localhost:3000/*` or no referrer restriction for dev
 3. **Already verified** — no resend needed; refresh Settings after clicking the email link
 4. **Rate limit** — wait if you sent many test emails

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isNativePlatform } from "@/lib/capacitor/platform";
 
 const firebaseClientEnvSchema = z.object({
   NEXT_PUBLIC_FIREBASE_API_KEY: z.string().min(1),
@@ -35,5 +36,6 @@ export function isFirebaseConfigured(): boolean {
 }
 
 export function shouldUseFirebaseEmulators(): boolean {
+  if (typeof window !== "undefined" && isNativePlatform()) return false;
   return process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATORS === "true";
 }

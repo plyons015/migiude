@@ -1,6 +1,8 @@
-# Migiude roadmap — meeting app vision
+# Ude roadmap — meeting app vision
 
 **Master checklist (what’s left to build):** [PHASES.md](PHASES.md)
+
+**On-device voice (shipped A–F):** Tap = Whisper (WASM or Android native); hold = cloud meeting STT. See [FEATURES.md](FEATURES.md) and [ON_DEVICE_PHASE_F.md](ON_DEVICE_PHASE_F.md).
 
 This doc aligns **what you built (Phases 0–4)** with a **meeting assistant** like Pocket AI, based on your phased plan and the Grok thread [*AetherMind Repo vs Pocket AI Voice Substitute*](https://grok.com/share/bGVnYWN5LWNvcHk_f99dbc47-1e48-455a-bd8b-a29dfbf45b8f).
 
@@ -14,7 +16,7 @@ This doc aligns **what you built (Phases 0–4)** with a **meeting assistant** l
 | **3** | Notes, todos, dashboard, IndexedDB, reminders | **Strong** storage & follow-up |
 | **4** | Settings, theme, local-only mode, APK notes | Privacy & polish |
 
-**Bottom line:** Migiude is already a good **“listen → transcribe → AI → notes/todos”** app. It is **not yet** a reliable **multi-speaker meeting recorder** (Pocket AI class).
+**Bottom line:** Ude is already a good **“listen → transcribe → AI → notes/todos”** app. It is **not yet** a reliable **multi-speaker meeting recorder** (Pocket AI class).
 
 ---
 
@@ -84,7 +86,7 @@ Keep Phases 0–4 as **done**. Add meeting-focused work as **Phase 5+** (order m
 
 Typical advice in that conversation class:
 
-| Direction | Meaning for Migiude |
+| Direction | Meaning for Ude |
 |-----------|---------------------|
 | **Pocket AI** | Product reference: live meeting capture, summaries, action items, mobile-first. |
 | **AetherMind / roll-your-own** | You’re building the substitute on **Firebase + Capacitor + Gemini** — correct for privacy and control. |
@@ -146,7 +148,7 @@ Your Grok spec used different paths; functionally most of Phase 1–4 is done un
 
 ## Competitors (Android) — positioning
 
-| App | Overlap with Migiude | Your edge |
+| App | Overlap with Ude | Your edge |
 |-----|----------------------|-----------|
 | [Otter.ai](https://otter.ai/) | Live transcript, summaries, action items | Lighter, privacy-first, no long audio archive (when STT policy is clear) |
 | Talknotes / Audionotes | Voice → tasks, summaries, mind maps | Model choice (Gemini/Grok), Firebase + local-only mode |
@@ -194,7 +196,7 @@ Then **Phase 6** STT + true speakers (don’t rely on Gemini guessing diarizatio
 
 ### Product line (what to build vs avoid)
 
-| Build (Migiude sweet spot) | Stop short of (full PM) |
+| Build (Ude sweet spot) | Stop short of (full PM) |
 |----------------------------|-------------------------|
 | **Meeting** as first-class object (not only a note) | Workspaces, permissions, guest users |
 | Append **your** notes + **agenda/script** beside AI output | Block editor with 50 block types |

@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  hapticMeetingHint,
+  hapticMeetingStart,
+  hapticTap,
+} from "@/lib/capacitor/haptics";
 
-export const HOLD_CLOUD_MS = 5_000;
-export const HOLD_PURPLE_MS = 2_500;
+/** Default hold thresholds (overridden via Settings → meeting hold duration). */
+export const HOLD_CLOUD_MS_DEFAULT = 5_000;
+export const HOLD_PURPLE_MS_DEFAULT = 2_500;
 export const TAP_MAX_MS = 400;
 
 export type HoldGesturePhase = "idle" | "holding" | "cloud-ready";
@@ -20,12 +26,19 @@ type UseHoldGestureOptions = {
   onTap: () => void;
   onCloudHoldComplete: () => void;
   disabled?: boolean;
+  /** When false, hold never completes (local-only or cloud STT unavailable). */
+  meetingHoldEnabled?: boolean;
+  holdCloudMs?: number;
+  holdPurpleMs?: number;
 };
 
 export function useHoldGesture({
   onTap,
   onCloudHoldComplete,
   disabled = false,
+  meetingHoldEnabled = true,
+  holdCloudMs = HOLD_CLOUD_MS_DEFAULT,
+  holdPurpleMs = HOLD_PURPLE_MS_DEFAULT,
 }: UseHoldGestureOptions) {
   const [state, setState] = useState<HoldGestureState>({
     phase: "idle",
@@ -35,6 +48,7 @@ export function useHoldGesture({
 
   const downAtRef = useRef<number | null>(null);
   const firedCloudRef = useRef(false);
+  const firedHintRef = useRef(false);
   const rafRef = useRef<number | null>(null);
 
   const clearRaf = useCallback(() => {
@@ -48,6 +62,7 @@ export function useHoldGesture({
     clearRaf();
     downAtRef.current = null;
     firedCloudRef.current = false;
+    firedHintRef.current = false;
     setState({ phase: "idle", holdProgress: 0, cloudHint: false });
   }, [clearRaf]);
 
@@ -57,17 +72,29 @@ export function useHoldGesture({
       if (downAt == null) return;
 
       const elapsed = Date.now() - downAt;
-      const progress = Math.min(1, elapsed / HOLD_CLOUD_MS);
-      const cloudHint = elapsed >= HOLD_PURPLE_MS;
+      const progress = Math.min(1, elapsed / holdCloudMs);
+      const cloudHint =
+        meetingHoldEnabled && elapsed >= holdPurpleMs;
+
+      if (cloudHint && !firedHintRef.current) {
+        firedHintRef.current = true;
+        void hapticMeetingHint();
+      }
 
       setState({
-        phase: progress >= 1 ? "cloud-ready" : "holding",
-        holdProgress: progress,
+        phase:
+          meetingHoldEnabled && progress >= 1 ? "cloud-ready" : "holding",
+        holdProgress: meetingHoldEnabled ? progress : Math.min(progress, 0.49),
         cloudHint,
       });
 
-      if (elapsed >= HOLD_CLOUD_MS && !firedCloudRef.current) {
+      if (
+        meetingHoldEnabled &&
+        elapsed >= holdCloudMs &&
+        !firedCloudRef.current
+      ) {
         firedCloudRef.current = true;
+        void hapticMeetingStart();
         onCloudHoldComplete();
         reset();
         return;
@@ -77,7 +104,13 @@ export function useHoldGesture({
     };
 
     rafRef.current = requestAnimationFrame(loop);
-  }, [onCloudHoldComplete, reset]);
+  }, [
+    holdCloudMs,
+    holdPurpleMs,
+    meetingHoldEnabled,
+    onCloudHoldComplete,
+    reset,
+  ]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -111,6 +144,7 @@ export function useHoldGesture({
       clearRaf();
 
       if (!firedCloudRef.current && elapsed < TAP_MAX_MS) {
+        void hapticTap();
         onTap();
       }
 

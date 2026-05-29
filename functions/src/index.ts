@@ -51,6 +51,13 @@ import {
 } from "./billing/handlers";
 import { stripeWebhook } from "./billing/webhook";
 import { reportClientError } from "./client-errors";
+import {
+  beginMicrosoftOAuth,
+  completeMicrosoftOAuth,
+  disconnectMicrosoftIntegration,
+  getMicrosoftIntegrationStatus,
+  requestTeamsBotJoin,
+} from "./integrations/microsoft/handlers";
 
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
 
@@ -142,6 +149,8 @@ const transcribeRequestSchema = z.object({
   mimeType: z.string().default("audio/webm"),
   lang: z.string().default("en-US"),
   audioDurationMs: z.number().int().min(0).max(120_000).optional(),
+  /** Meeting mode uses longer VAD chunks client-side and a diarization-friendly prompt. */
+  context: z.enum(["quick", "meeting"]).optional(),
 });
 
 export type TranscribeAudioResponse = {
@@ -167,7 +176,8 @@ export const transcribeAudio = onCall(
       throw new HttpsError("invalid-argument", parsed.error.message);
     }
 
-    const { audioBase64, mimeType, lang, audioDurationMs } = parsed.data;
+    const { audioBase64, mimeType, lang, audioDurationMs, context } =
+      parsed.data;
 
     if (audioBase64.length > 12_000_000) {
       throw new HttpsError(
@@ -211,6 +221,7 @@ export const transcribeAudio = onCall(
         mimeType,
         lang,
         durationSec,
+        context === "meeting" ? "meeting" : "quick",
       );
       return { segments };
     } catch (error) {
@@ -253,4 +264,9 @@ export {
   adminUpdatePlanConfig,
   adminResetPlanConfig,
   recordTrialUsage,
+  getMicrosoftIntegrationStatus,
+  beginMicrosoftOAuth,
+  completeMicrosoftOAuth,
+  disconnectMicrosoftIntegration,
+  requestTeamsBotJoin,
 };

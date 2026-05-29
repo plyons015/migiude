@@ -3,13 +3,19 @@
 import { SecuritySettings } from "@/components/auth/security-settings";
 import { MeetingTemplatesSettings } from "@/components/settings/meeting-templates-settings";
 import { BillingSettings } from "@/components/settings/billing-settings";
+import { MicrosoftTeamsIntegration } from "@/components/settings/microsoft-teams-integration";
+import { OnDeviceModesCard } from "@/components/settings/on-device-modes-card";
+import { SpeechPersonalizationSettings } from "@/components/settings/speech-personalization-settings";
 import { APP_NAME } from "@/lib/branding/app-name";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { useAppSettings } from "@/hooks/use-app-settings";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { clearAllLocalData } from "@/lib/data/local-db";
+import { clearSpeechPersonalizationDb } from "@/lib/speech/personalization-store";
 import { aiService } from "@/lib/ai/ai-service";
 import type { AiProvider } from "@/lib/ai/types";
 import { requestNotificationPermission } from "@/lib/notifications/reminders";
+import { WHISPER_MODEL_OPTIONS, whisperModelApproxMb } from "@/lib/speech/whisper-models";
 import {
   setLocalOnlyMode,
   setNotificationsEnabled,
@@ -20,10 +26,19 @@ import {
   setVoiceCommandsEnabled,
   setMeetingTranscriptionMode,
   setQuickTranscriptionMode,
+  setWhisperModelSize,
+  setWhisperVadEnabled,
+  setWhisperWifiOnlyDownload,
+  setPreferNativeWhisper,
+  setMeetingHoldSeconds,
+  MEETING_HOLD_OPTIONS,
+  setLocalTodoHintsEnabled,
   SPEECH_LANGUAGES,
   type TranscriptionMode,
+  type WhisperModelSize,
   type SpeechLanguage,
   type ThemePreference,
+  type MeetingHoldSeconds,
 } from "@/lib/settings/preferences";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,10 +58,13 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { knowledgeBaseArticlePath } from "@/lib/help/knowledge-base";
 import Link from "next/link";
 import { useState } from "react";
 
 export function SettingsView() {
+  const { user } = useAuthUser();
+  const userId = user?.uid ?? "";
   const { provider, setProvider } = useAiSettings();
   const {
     speechLang,
@@ -58,6 +76,12 @@ export function SettingsView() {
     voiceCommands,
     meetingTranscriptionMode,
     quickTranscriptionMode,
+    whisperModelSize,
+    whisperVadEnabled,
+    whisperWifiOnlyDownload,
+    preferNativeWhisper,
+    meetingHoldSeconds,
+    localTodoHints,
   } = useAppSettings();
   const [status, setStatus] = useState<string | null>(null);
 
@@ -123,17 +147,121 @@ export function SettingsView() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="browser">Browser speech — fastest</SelectItem>
+                <SelectItem value="browser">
+                  On-device — Whisper (private)
+                </SelectItem>
                 <SelectItem value="cloud">Cloud STT — speakers</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
               {localOnly
-                ? "Local-only: browser speech only."
+                ? "Local-only: on-device Whisper or browser speech fallback."
                 : quickTranscriptionMode === "cloud"
                   ? "Cloud chunks for the big mic button. Uses AI billing."
-                  : "Default for counseling on the fly — no audio upload."}
+                  : "Tap mic: Whisper runs in your browser. Audio stays on device."}
             </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="whisper-model-size">On-device model</Label>
+            <Select
+              value={whisperModelSize}
+              onValueChange={(v) => setWhisperModelSize(v as WhisperModelSize)}
+            >
+              <SelectTrigger id="whisper-model-size">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WHISPER_MODEL_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Downloaded once and cached in your browser (~
+              {whisperModelApproxMb(whisperModelSize, speechLang)} MB). Non-English
+              languages use multilingual Whisper models.
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="local-todo-hints">On-device todo hints</Label>
+              <p className="text-xs text-muted-foreground">
+                Suggest follow-ups from phrases like &quot;I will…&quot; (no cloud AI)
+              </p>
+            </div>
+            <Switch
+              id="local-todo-hints"
+              checked={localTodoHints}
+              onCheckedChange={setLocalTodoHintsEnabled}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="whisper-vad">Pause on silence</Label>
+              <p className="text-xs text-muted-foreground">
+                Skip Whisper while quiet — saves battery on long sessions
+              </p>
+            </div>
+            <Switch
+              id="whisper-vad"
+              checked={whisperVadEnabled}
+              onCheckedChange={setWhisperVadEnabled}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="whisper-wifi">Wi‑Fi only model download</Label>
+              <p className="text-xs text-muted-foreground">
+                Block first-time model download on cellular data
+              </p>
+            </div>
+            <Switch
+              id="whisper-wifi"
+              checked={whisperWifiOnlyDownload}
+              onCheckedChange={setWhisperWifiOnlyDownload}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="meeting-hold-seconds">Meeting hold duration</Label>
+            <Select
+              value={String(meetingHoldSeconds)}
+              onValueChange={(v) =>
+                setMeetingHoldSeconds(Number(v) as MeetingHoldSeconds)
+              }
+            >
+              <SelectTrigger id="meeting-hold-seconds">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MEETING_HOLD_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={String(opt.value)}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              How long to hold the home mic before cloud meeting mode starts.
+              Violet ring appears halfway.
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="prefer-native-whisper">
+                Native Whisper (Android)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Use whisper.cpp on arm64 phones for faster capture. Emulators and
+                web use browser WASM instead.
+              </p>
+            </div>
+            <Switch
+              id="prefer-native-whisper"
+              checked={preferNativeWhisper}
+              onCheckedChange={setPreferNativeWhisper}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="meeting-transcription-mode">
@@ -150,7 +278,7 @@ export function SettingsView() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="browser">Browser speech</SelectItem>
+                <SelectItem value="browser">On-device Whisper</SelectItem>
                 <SelectItem value="cloud">
                   Cloud STT — speakers (recommended)
                 </SelectItem>
@@ -158,16 +286,26 @@ export function SettingsView() {
             </Select>
             <p className="text-xs text-muted-foreground">
               {localOnly
-                ? "Local-only: browser speech only."
+                ? "Local-only: on-device speech only."
                 : meetingTranscriptionMode === "cloud"
-                  ? "Speaker labels in the meeting room. Works when browser speech fails."
-                  : "Browser speech for full meetings — no speaker split."}
+                  ? "Speaker labels in the meeting room. Works when on-device fails."
+                  : `Hold mic ${meetingHoldSeconds}s or use cloud meeting mode for speaker labels.`}
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
             Android: while the mic is on, {APP_NAME} pauses most other apps&apos;
             audio. Close music or video apps if you still see foreign text in the
             transcript.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Recording alongside Teams, Zoom, or Meet?{" "}
+            <Link
+              href={knowledgeBaseArticlePath("teams-zoom-meet")}
+              className="font-medium text-violet-600 underline dark:text-violet-400"
+            >
+              Read the video-call guide
+            </Link>{" "}
+            (headphones, Cloud STT, mixed accents).
           </p>
           <Label htmlFor="speech-lang">Recognition language</Label>
           <Select
@@ -187,6 +325,10 @@ export function SettingsView() {
           </Select>
         </CardContent>
       </Card>
+
+      <OnDeviceModesCard />
+
+      {userId ? <SpeechPersonalizationSettings userId={userId} /> : null}
 
       <Card>
         <CardHeader>
@@ -261,6 +403,8 @@ export function SettingsView() {
 
       <MeetingTemplatesSettings />
 
+      <MicrosoftTeamsIntegration />
+
       <BillingSettings />
 
       <Card>
@@ -307,7 +451,10 @@ export function SettingsView() {
             variant="destructive"
             size="sm"
             onClick={() => {
-              void clearAllLocalData()
+              void Promise.all([
+                clearAllLocalData(),
+                clearSpeechPersonalizationDb(),
+              ])
                 .then(() => setStatus("Local notes, todos, and meetings cleared."))
                 .catch((e) => setStatus(String(e)));
             }}

@@ -30,5 +30,5 @@ Optional: add `android/app/google-services.json` when using FCM (Phase 5).
 
 ## Capacitor branding
 
-- App name: `Migiude` in `capacitor.config.ts` and `android/app/src/main/res/values/strings.xml`
+- App name: `Ude` in `capacitor.config.ts` and `android/app/src/main/res/values/strings.xml`
 - Replace default launcher icons in `android/app/src/main/res/mipmap-*` before store release

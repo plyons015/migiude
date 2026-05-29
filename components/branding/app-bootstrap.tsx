@@ -6,24 +6,34 @@ import {
   shouldShowDailyOpeningSplash,
 } from "@/lib/branding/splash-daily";
 import { isNativePlatform } from "@/lib/capacitor/platform";
-import { useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 
-function shouldShowSplashOnLaunch(): boolean {
-  if (typeof window === "undefined") return false;
-  if (isNativePlatform()) return true;
+function subscribeSplashStore() {
+  return () => {};
+}
+
+/** Client-only splash decision; server snapshot must stay false to avoid hydration mismatch. */
+function readSplashVisible(): boolean {
+  if (isNativePlatform()) return false;
   return shouldShowDailyOpeningSplash();
 }
 
-/** Opening video splash, then the app. Web: once per local day; native: every launch. */
+/** Opening video splash, then the app. Web: once per local day; native: skipped. */
 export function AppBootstrap({ children }: { children: React.ReactNode }) {
-  const [visible, setVisible] = useState(shouldShowSplashOnLaunch);
+  const shouldShow = useSyncExternalStore(
+    subscribeSplashStore,
+    readSplashVisible,
+    () => false,
+  );
+  const [dismissed, setDismissed] = useState(false);
+  const visible = shouldShow && !dismissed;
 
-  const completeSplash = () => {
+  const completeSplash = useCallback(() => {
     if (!isNativePlatform()) {
       markDailyOpeningSplashShown();
     }
-    setVisible(false);
-  };
+    setDismissed(true);
+  }, []);
 
   return (
     <>

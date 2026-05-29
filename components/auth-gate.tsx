@@ -7,7 +7,7 @@ import { isAppSession } from "@/lib/firebase/session-policy";
 import { allowAnonymousSignIn } from "@/lib/env/auth-flags";
 import { isFirebaseConfigured } from "@/lib/env/client";
 import { Loader2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type AuthGateProps = {
   children: (uid: string) => React.ReactNode;
@@ -17,6 +17,11 @@ export function AuthGate({ children }: AuthGateProps) {
   const { user, loading } = useAuthUser();
   const firebaseReady = isFirebaseConfigured();
   const clearedAnonymous = useRef(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Drop legacy anonymous sessions so email/password sign-in is required.
   useEffect(() => {
@@ -26,6 +31,10 @@ export function AuthGate({ children }: AuthGateProps) {
       void signOutUser();
     }
   }, [loading, user]);
+
+  if (!mounted) {
+    return null;
+  }
 
   if (!firebaseReady) {
     return (

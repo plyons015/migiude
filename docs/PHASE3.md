@@ -5,7 +5,7 @@
 | Layer | Path | Fallback |
 |-------|------|----------|
 | **Firestore** | `users/{uid}/notes`, `users/{uid}/todos` | — |
-| **IndexedDB** | `migiude-offline` vault per user | Used offline + cache on sync |
+| **IndexedDB** | `Ude-offline` vault per user | Used offline + cache on sync |
 
 Every write goes to **local first**, then Firestore when configured and signed in.
 

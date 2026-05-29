@@ -4,6 +4,7 @@ import { PlanUsageCard } from "@/components/settings/plan-usage-card";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { usePlanAndUsage } from "@/hooks/use-plan-and-usage";
 import { createBillingPortalSession, createCheckoutSession } from "@/lib/billing/client";
+import { TEAMS_BOT_INTEGRATION_LAUNCHED } from "@/lib/integrations/microsoft/feature";
 import { isFirebaseConfigured } from "@/lib/env/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ function TierCard({
   tagline,
   cloudLabel,
   aiLabel,
+  teamsBotLabel,
   priceMonthly,
   priceYearly,
   highlighted,
@@ -39,6 +41,7 @@ function TierCard({
   tagline: string;
   cloudLabel: string;
   aiLabel: string;
+  teamsBotLabel?: string;
   priceMonthly: number | null;
   priceYearly: number | null;
   highlighted?: boolean;
@@ -66,6 +69,9 @@ function TierCard({
       </p>
       <p className="text-xs text-muted-foreground">{cloudLabel}</p>
       <p className="text-xs text-muted-foreground">{aiLabel}</p>
+      {teamsBotLabel ? (
+        <p className="text-xs text-muted-foreground">{teamsBotLabel}</p>
+      ) : null}
       <p className="mt-2 tabular-nums text-xs">
         ${priceMonthly}/mo · ${priceYearly}/yr
       </p>
@@ -150,6 +156,11 @@ export function BillingSettings() {
               tagline={pro.tagline}
               cloudLabel={pro.cloudSttLabel}
               aiLabel={pro.aiLabel}
+              teamsBotLabel={
+                TEAMS_BOT_INTEGRATION_LAUNCHED
+                  ? pro.teamsBotLabel
+                  : "Teams meeting bot — coming soon"
+              }
               priceMonthly={pro.priceMonthlyUsd}
               priceYearly={pro.priceYearlyUsd}
               highlighted
@@ -161,6 +172,11 @@ export function BillingSettings() {
               tagline={power.tagline}
               cloudLabel={power.cloudSttLabel}
               aiLabel={power.aiLabel}
+              teamsBotLabel={
+                TEAMS_BOT_INTEGRATION_LAUNCHED
+                  ? power.teamsBotLabel
+                  : "Teams meeting bot — coming soon"
+              }
               priceMonthly={power.priceMonthlyUsd}
               priceYearly={power.priceYearlyUsd}
               isCurrent={currentPlan === "power"}

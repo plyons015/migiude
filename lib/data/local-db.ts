@@ -5,9 +5,10 @@ import type {
   NoteRecord,
   TodoRecord,
 } from "@/lib/data/types";
+import type { FriendRecord, GroupRecord } from "@/lib/groups/types";
 
 const DB_NAME = "migiude-offline";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = "vault";
 
 function vaultKey(userId: string): string {
@@ -42,6 +43,8 @@ async function readVault(userId: string): Promise<LocalVault> {
         todos: raw?.todos ?? [],
         meetings: raw?.meetings ?? [],
         appends: raw?.appends ?? [],
+        friends: raw?.friends ?? [],
+        groups: raw?.groups ?? [],
       });
     };
   });
@@ -166,6 +169,60 @@ export async function deleteLocalAppend(
 ): Promise<void> {
   const vault = await readVault(userId);
   vault.appends = (vault.appends ?? []).filter((a) => a.id !== appendId);
+  await writeVault(userId, vault);
+}
+
+export async function listLocalFriends(userId: string): Promise<FriendRecord[]> {
+  const vault = await readVault(userId);
+  return [...vault.friends].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function upsertLocalFriend(
+  userId: string,
+  friend: FriendRecord,
+): Promise<void> {
+  const vault = await readVault(userId);
+  const idx = vault.friends.findIndex((f) => f.id === friend.id);
+  if (idx >= 0) vault.friends[idx] = friend;
+  else vault.friends.push(friend);
+  await writeVault(userId, vault);
+}
+
+export async function deleteLocalFriend(
+  userId: string,
+  friendId: string,
+): Promise<void> {
+  const vault = await readVault(userId);
+  vault.friends = vault.friends.filter((f) => f.id !== friendId);
+  vault.groups = vault.groups.map((g) => ({
+    ...g,
+    friendIds: g.friendIds.filter((id) => id !== friendId),
+  }));
+  await writeVault(userId, vault);
+}
+
+export async function listLocalGroups(userId: string): Promise<GroupRecord[]> {
+  const vault = await readVault(userId);
+  return [...vault.groups].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function upsertLocalGroup(
+  userId: string,
+  group: GroupRecord,
+): Promise<void> {
+  const vault = await readVault(userId);
+  const idx = vault.groups.findIndex((g) => g.id === group.id);
+  if (idx >= 0) vault.groups[idx] = group;
+  else vault.groups.push(group);
+  await writeVault(userId, vault);
+}
+
+export async function deleteLocalGroup(
+  userId: string,
+  groupId: string,
+): Promise<void> {
+  const vault = await readVault(userId);
+  vault.groups = vault.groups.filter((g) => g.id !== groupId);
   await writeVault(userId, vault);
 }
 

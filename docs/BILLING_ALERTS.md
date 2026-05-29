@@ -1,15 +1,15 @@
 # Firebase & Gemini budget alerts
 
-Set billing alerts on project **`migiude-app-plyons015`** so cloud STT and AI usage do not surprise you. Target **$50–100/month** for early launch (adjust in `docs/PLANS.md`).
+Set billing alerts on project **`Ude-app-plyons015`** so cloud STT and AI usage do not surprise you. Target **$50–100/month** for early launch (adjust in `docs/PLANS.md`).
 
 ## 1. Google Cloud billing budget (recommended)
 
 Covers **Firebase, Cloud Functions, Firestore, Secret Manager, and Gemini API** on the linked billing account.
 
 1. Open [Google Cloud Console → Billing → Budgets & alerts](https://console.cloud.google.com/billing/budgets)
-2. Select the billing account linked to `migiude-app-plyons015`
+2. Select the billing account linked to `Ude-app-plyons015`
 3. **Create budget**
-4. **Scope:** filter to project `migiude-app-plyons015` (optional but clearer)
+4. **Scope:** filter to project `Ude-app-plyons015` (optional but clearer)
 5. **Amount:** e.g. **$75/month** (or $50 / $100)
 6. **Alert thresholds:** 50%, 90%, 100% of budget
 7. **Email notifications:** your ops email
@@ -18,7 +18,7 @@ Repeat with a **second budget** at **$150** or **$200** if you want a hard “in
 
 ## 2. Firebase usage (console)
 
-1. [Firebase Console](https://console.firebase.google.com/project/migiude-app-plyons015/usage) → **Usage and billing**
+1. [Firebase Console](https://console.firebase.google.com/project/Ude-app-plyons015/usage) → **Usage and billing**
 2. Review **Blaze** plan usage: Functions invocations, Firestore reads/writes, Hosting
 3. Enable email alerts if offered under **Billing settings** for the linked GCP account
 

@@ -21,7 +21,7 @@ In Android Studio:
 3. Choose **release** variant
 4. Install APK on a physical device and test:
    - Onboarding (first launch)
-   - Start meeting → notification “Migiude is listening”
+   - Start meeting → notification “Ude is listening”
    - End meeting → “Meeting saved” notification
    - Todo due reminder (set due 2 min ahead)
    - Cloud STT if using Meeting mode
@@ -30,7 +30,7 @@ In Android Studio:
 
 Optional for FCM:
 
-1. Firebase Console → Add Android app → package `com.migiude.app`
+1. Firebase Console → Add Android app → package `com.Ude.app`
 2. Place `google-services.json` in `android/app/`
 3. `npm run cap:sync` and rebuild
 

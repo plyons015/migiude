@@ -16,7 +16,9 @@ import { TranscriptTab } from "@/components/meetings/tabs/transcript-tab";
 import { Badge } from "@/components/ui/badge";
 import { useMeetingAppends } from "@/hooks/use-meeting-appends";
 import { useMeetings } from "@/hooks/use-meetings";
+import { useSharedMeetings } from "@/hooks/use-shared-meetings";
 import { useTodos } from "@/hooks/use-todos";
+import { archiveUrl } from "@/lib/archive/routes";
 import { saveMeeting } from "@/lib/data/meetings-store";
 import type { MeetingRecord } from "@/lib/data/types";
 import {
@@ -39,6 +41,7 @@ export function MeetingRoomView({ userId, meetingId }: MeetingRoomViewProps) {
   const searchParams = useSearchParams();
   const tab = parseMeetingTab(searchParams.get("tab"));
   const { meetings } = useMeetings(userId);
+  const { meetings: sharedMeetings } = useSharedMeetings(userId);
   const { todos } = useTodos(userId);
   const { appends } = useMeetingAppends(userId, meetingId);
   const [highlightSegmentId, setHighlightSegmentId] = useState<string | null>(
@@ -46,7 +49,16 @@ export function MeetingRoomView({ userId, meetingId }: MeetingRoomViewProps) {
   );
   const [segmentsReady, setSegmentsReady] = useState(false);
 
-  const meeting = meetings.find((m) => m.id === meetingId);
+  const allMeetings = useMemo(
+    () => [...meetings, ...sharedMeetings],
+    [meetings, sharedMeetings],
+  );
+
+  const meeting = allMeetings.find((m) => m.id === meetingId);
+
+  const isOwner = meeting?.cloudSyncMeta?.ownerUid
+    ? meeting.cloudSyncMeta.ownerUid === userId
+    : true;
 
   const setTab = useCallback(
     (next: MeetingTabId) => {
@@ -60,9 +72,10 @@ export function MeetingRoomView({ userId, meetingId }: MeetingRoomViewProps) {
 
   const onSave = useCallback(
     async (updated: MeetingRecord) => {
+      if (!isOwner) return;
       await saveMeeting(userId, updated);
     },
-    [userId],
+    [isOwner, userId],
   );
 
   useEffect(() => {
@@ -76,12 +89,16 @@ export function MeetingRoomView({ userId, meetingId }: MeetingRoomViewProps) {
       setSegmentsReady(true);
       return;
     }
+    if (!isOwner) {
+      setSegmentsReady(true);
+      return;
+    }
     void saveMeeting(userId, {
       ...meeting,
       segments,
       speakers: speakersFromSegments(segments, meeting.speakers),
     }).then(() => setSegmentsReady(true));
-  }, [meeting, userId, segmentsReady]);
+  }, [meeting, isOwner, userId, segmentsReady]);
 
   const segmentOptions = useMemo(() => {
     if (!meeting) return [];
@@ -143,7 +160,10 @@ export function MeetingRoomView({ userId, meetingId }: MeetingRoomViewProps) {
         </header>
         <div className="flex flex-wrap items-center gap-3">
           <Link
-            href={`/notes/?id=${meeting.canonicalNoteId}`}
+            href={archiveUrl({
+              filter: "notes",
+              id: meeting.canonicalNoteId,
+            })}
             className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 underline dark:text-violet-400"
           >
             <FileText className="h-4 w-4" />

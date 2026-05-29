@@ -4,6 +4,7 @@ import { MermaidDiagram } from "@/components/mermaid-diagram";
 import { TagChipInput } from "@/components/listen/tag-chip-input";
 import { TodoList } from "@/components/todos/todo-list";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useNotes } from "@/hooks/use-notes";
 import { useTodos } from "@/hooks/use-todos";
 import { removeNote, saveNote } from "@/lib/data/notes-store";
@@ -53,6 +54,11 @@ export function NotesView({ userId }: NotesViewProps) {
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     if (selected) {
@@ -112,23 +118,29 @@ export function NotesView({ userId }: NotesViewProps) {
     }
   }
 
-  async function deleteNoteById(noteId: string) {
-    if (
-      !window.confirm(
-        "Delete this note? This cannot be undone.",
-      )
-    ) {
-      return;
-    }
+  function requestDelete(note: { id: string; title: string }) {
+    setDeleteError(null);
+    setPendingDelete({ id: note.id, title: note.title });
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const noteId = pendingDelete.id;
     setBusy(true);
+    setDeleteError(null);
     try {
       await removeNote(userId, noteId);
+      setPendingDelete(null);
       if (selectedId === noteId) {
         selectNote(null);
         const url = new URL(window.location.href);
         url.searchParams.delete("id");
         window.history.replaceState({}, "", url.toString());
       }
+    } catch (e) {
+      setDeleteError(
+        e instanceof Error ? e.message : "Could not delete this note.",
+      );
     } finally {
       setBusy(false);
     }
@@ -136,7 +148,7 @@ export function NotesView({ userId }: NotesViewProps) {
 
   async function handleDelete() {
     if (!selected) return;
-    await deleteNoteById(selected.id);
+    requestDelete(selected);
   }
 
   if (tab === "todos") {
@@ -149,6 +161,24 @@ export function NotesView({ userId }: NotesViewProps) {
   }
 
   return (
+    <>
+    <ConfirmDialog
+      open={pendingDelete !== null}
+      title="Delete note?"
+      description={
+        pendingDelete
+          ? `“${pendingDelete.title}” will be removed from this device and your account. This cannot be undone.`
+          : ""
+      }
+      confirmLabel="Delete"
+      cancelLabel="Cancel"
+      destructive
+      busy={busy}
+      onConfirm={() => void confirmDelete()}
+      onCancel={() => {
+        if (!busy) setPendingDelete(null);
+      }}
+    />
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <aside className="shrink-0 border-b border-zinc-200 lg:w-64 lg:border-b-0 lg:border-r dark:border-zinc-800">
         <div className="flex items-center justify-between p-4">
@@ -226,7 +256,10 @@ export function NotesView({ userId }: NotesViewProps) {
                 type="button"
                 disabled={busy}
                 aria-label={`Delete ${note.title}`}
-                onClick={() => void deleteNoteById(note.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  requestDelete(note);
+                }}
                 className="shrink-0 px-3 text-zinc-400 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
               >
                 <Trash2 className="h-4 w-4" />
@@ -278,6 +311,11 @@ export function NotesView({ userId }: NotesViewProps) {
             <MermaidDiagram source={selected.mindMapSource} />
           </div>
         ) : null}
+        {deleteError ? (
+          <p className="text-sm text-destructive" role="alert">
+            {deleteError}
+          </p>
+        ) : null}
         <div className="flex gap-2">
           <button
             type="button"
@@ -302,5 +340,6 @@ export function NotesView({ userId }: NotesViewProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }

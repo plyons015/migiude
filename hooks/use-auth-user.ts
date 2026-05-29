@@ -1,22 +1,47 @@
 "use client";
 
-import { getFirebaseAuth } from "@/lib/firebase/client";
+import { getFirebaseAuth, initFirebaseClient } from "@/lib/firebase/client";
 import { signInAnonymousUser } from "@/lib/firebase/auth";
+import { isFirebaseConfigured } from "@/lib/env/client";
 import { onAuthStateChanged, reload, type User } from "firebase/auth";
 import { allowAnonymousSignIn } from "@/lib/env/auth-flags";
 import { useCallback, useEffect, useState } from "react";
 
+const AUTH_READY_MS = 4_000;
+
+function readAuthSnapshot(): { user: User | null; loading: boolean } {
+  if (!isFirebaseConfigured()) {
+    return { user: null, loading: false };
+  }
+  initFirebaseClient();
+  const auth = getFirebaseAuth();
+  if (!auth) {
+    return { user: null, loading: false };
+  }
+  const current = auth.currentUser;
+  return { user: current, loading: true };
+}
+
 export function useAuthUser() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => readAuthSnapshot().user);
+  const [loading, setLoading] = useState(() => readAuthSnapshot().loading);
 
   useEffect(() => {
-    const auth = getFirebaseAuth();
-    if (!auth) {
+    if (!isFirebaseConfigured()) {
+      setUser(null);
       setLoading(false);
       return;
     }
-    const timeout = window.setTimeout(() => setLoading(false), 12_000);
+
+    initFirebaseClient();
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setLoading(false), AUTH_READY_MS);
     const unsub = onAuthStateChanged(auth, (next) => {
       setUser(next);
       setLoading(false);
